@@ -81,8 +81,8 @@ func Commentf(t *testing.T, format string, args ...interface{}) {
 }
 
 func LaunchContainers(t *testing.T, source []byte) (config *Config, err error) {
-	cleanup := test.Cleanup{t}
-	cleanup.Helper()
+	lc := test.Cleanup{t}
+	lc.Helper()
 
 	cli, xerr := client.NewEnvClient()
 	if xerr != nil {
@@ -157,33 +157,33 @@ func LaunchContainers(t *testing.T, source []byte) (config *Config, err error) {
 			return
 		}
 		config.Routers[i].id = cresp.ID
-		time.Sleep(2 * time.Second) // wait time for routing daemon to come up before adding interfaces
+		// wait time for routing daemon before adding interfaces
+		time.Sleep(2 * time.Second)
 
-		// set rp_filter off, need to do this again per interface later as well
-		cleanup.Program(*test.Goes, "ip", "netns", "exec", router.Hostname, "sysctl", "-w", "net/ipv4/conf/all/rp_filter=0")
+		// set rp_filter off, need to do this again later per interface
+		lc.Program("ip", "netns", "exec", router.Hostname,
+			"sysctl", "-w", "net/ipv4/conf/all/rp_filter=0")
 
 		for _, intf := range router.Intfs {
 			var newIntf string = intf.Name
 			if strings.Contains(intf.Name, "dummy") {
-				cleanup.Program(*test.Goes,
-					"ip", "link", "add", "name", newIntf,
+				lc.Program("ip", "link", "add", newIntf,
 					"type", "dummy")
-				cleanup.Program(*test.Goes,
-					"ip", "link", "set", "up", newIntf)
+				lc.Program("ip", "link", "set", newIntf, "up")
 			} else if intf.Vlan != "" {
 				newIntf = intf.Name + "." + intf.Vlan
-				cleanup.Program(*test.Goes,
-					"ip", "link", "set", "up", intf.Name)
-				cleanup.Program(*test.Goes,
-					"ip", "link", "add", "link", intf.Name,
-					"name", newIntf, "type", "vlan",
+				lc.Program("ip", "link", "set", intf.Name,
+					"up")
+				lc.Program("ip", "link", "add", newIntf,
+					"link", intf.Name, "type", "vlan",
 					"id", intf.Vlan)
-				cleanup.Program(*test.Goes,
-					"ip", "link", "set", "up", newIntf)
+				lc.Program("ip", "link", "set", newIntf, "up")
 			}
 			moveIntfContainer(t, router.Hostname, newIntf,
 				intf.Address)
-			cleanup.Program(*test.Goes, "ip", "netns", "exec", router.Hostname, "sysctl", "-w", "net/ipv4/conf/"+newIntf+"/rp_filter=0")
+			lc.Program("ip", "netns", "exec", router.Hostname,
+				"sysctl", "-w",
+				"net/ipv4/conf/"+newIntf+"/rp_filter=0")
 		}
 	}
 	time.Sleep(1 * time.Second)
@@ -200,8 +200,9 @@ func FindHost(config *Config, host string) (router Router, err error) {
 	return
 }
 
-func ExecCmd(t *testing.T, ID string, config *Config, cmd []string) (out string,
-	err error) {
+func ExecCmd(t *testing.T, ID string, config *Config,
+	cmd []string) (out string, err error) {
+	t.Helper()
 
 	execOpts := types.ExecConfig{
 		Cmd:          cmd,
@@ -213,6 +214,10 @@ func ExecCmd(t *testing.T, ID string, config *Config, cmd []string) (out string,
 
 	cli := config.cli
 	ctx := context.Background()
+
+	if *test.VVV {
+		t.Log(ID, cmd)
+	}
 
 	execResp, err := cli.ContainerExecCreate(ctx, ID, execOpts)
 	if err != nil {
@@ -246,11 +251,14 @@ func ExecCmd(t *testing.T, ID string, config *Config, cmd []string) (out string,
 		err = fmt.Errorf("[%v] exit code %v", cmd, ei.ExitCode)
 		return
 	}
-
+	if *test.VV {
+		t.Log(out)
+	}
 	return
 }
 
 func PingCmd(t *testing.T, ID string, config *Config, target string) error {
+	t.Helper()
 
 	cmd := []string{"/bin/ping", "-c1", "-W1", target}
 	Comment(t, "In PingCmd", cmd)
@@ -314,18 +322,17 @@ func PingCmd(t *testing.T, ID string, config *Config, target string) error {
 }
 
 func TearDownContainers(t *testing.T, config *Config) {
-	cleanup := test.Cleanup{t}
+	t.Helper()
+	td := test.Cleanup{t}
 	for _, r := range config.Routers {
 		for _, intf := range r.Intfs {
 			if intf.Vlan != "" {
 				newIntf := intf.Name + "." + intf.Vlan
 				moveIntfDefault(t, r.Hostname, newIntf)
-				cleanup.Program(*test.Goes,
-					"ip", "link", "del", newIntf)
+				td.Program("ip", "link", "del", newIntf)
 			} else if strings.Contains(intf.Name, "dummy") {
 				moveIntfDefault(t, r.Hostname, intf.Name)
-				cleanup.Program(*test.Goes,
-					"ip", "link", "del", intf.Name)
+				td.Program("ip", "link", "del", intf.Name)
 			} else {
 				moveIntfDefault(t, r.Hostname, intf.Name)
 			}
@@ -428,11 +435,14 @@ func startContainer(t *testing.T, config *Config, cc *container.Config,
 	}
 	src := "/proc/" + pid + "/ns/net"
 	dst := "/var/run/netns/" + cc.Hostname
-	assert.Program(*test.Goes, "ln", "-s", src, dst)
+	assert.Program("ln", "-s", src, dst)
 	return
 }
 
-func stopContainer(t *testing.T, config *Config, name string, ID string) error {
+func stopContainer(t *testing.T, config *Config, name string,
+	ID string) error {
+
+	t.Helper()
 	Comment(t, "Stopping container", name)
 
 	cli := config.cli
@@ -473,32 +483,26 @@ func getPid(ID string) (pid string, err error) {
 func moveIntfContainer(t *testing.T, container string, intf string,
 	addr string) error {
 
+	t.Helper()
 	assert := test.Assert{t}
 
 	Comment(t, "moving", intf, "to container", container,
 		"with address", addr)
 
-	assert.Program(*test.Goes,
-		"ip", "link", "set", intf, "netns", container)
-	assert.Program(*test.Goes,
-		"ip", "-n", container, "link", "set", "up", "lo")
-	assert.Program(*test.Goes,
-		"ip", "-n", container, "link", "set", "down", intf)
-	assert.Program(*test.Goes,
-		"ip", "-n", container, "link", "set", "up", intf)
-	assert.Program(*test.Goes,
-		"ip", "-n", container, "addr", "add", addr, "dev", intf)
+	assert.Program("ip", "link", "set", intf, "netns", container)
+	assert.Program("ip", "-n", container, "link", "set", "up", "lo")
+	assert.Program("ip", "-n", container, "link", "set", "down", intf)
+	assert.Program("ip", "-n", container, "link", "set", "up", intf)
+	assert.Program("ip", "-n", container, "addr", "add", addr, "dev", intf)
 	return nil
 }
 
 func moveIntfDefault(t *testing.T, container string, intf string) error {
+	t.Helper()
 	Comment(t, "moving", intf, "from", container, "to default")
-	cleanup := test.Cleanup{t}
-	cleanup.Program(*test.Goes,
-		"ip", "-n", container, "link", "set", "down", intf)
-	cleanup.Program(*test.Goes,
-		"ip", "-n", container, "link", "set", intf, "netns", "1")
-	cleanup.Program(*test.Goes,
-		"ip", "link", "set", intf, "up")
+	mv := test.Cleanup{t}
+	mv.Program("ip", "-n", container, "link", "set", "down", intf)
+	mv.Program("ip", "-n", container, "link", "set", intf, "netns", "1")
+	mv.Program("ip", "link", "set", intf, "up")
 	return nil
 }

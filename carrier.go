@@ -16,10 +16,13 @@ import (
 func Carrier(netns, ifname string) error {
 	const period = 250 * time.Millisecond
 	fn := filepath.Join("/sys/class/net", ifname, "carrier")
+	xargs := []string{"cat", fn}
+	if len(netns) > 0 && netns != "default" {
+		xargs = append([]string{"ip", "netns", "exec", netns},
+			xargs...)
+	}
 	for t := 3 * (time.Second / period); t != 0; t-- {
-		cmd := exec.Command(*Goes, "ip", "netns", "exec", netns,
-			*Goes, "cat", fn)
-		output, err := cmd.Output()
+		output, err := exec.Command(xargs[0], xargs[1:]...).Output()
 		if err != nil {
 			return err
 		}

@@ -7,8 +7,8 @@
 package ethtool
 
 import (
+	"fmt"
 	"io/ioutil"
-	"time"
 
 	"github.com/platinasystems/test"
 	"gopkg.in/yaml.v2"
@@ -17,25 +17,29 @@ import (
 const (
 	SettingsFile  = "testdata/ethtool.yaml"
 	PrivFlagsFile = "testdata/ethtool_priv_flags.yaml"
-	TimeOut       = 2 * time.Second
 )
 
 var Settings, PrivFlags map[string][]string
 
-func Init(assert test.Assert) {
-	assert.Helper()
+func Init() {
 	if b, err := ioutil.ReadFile(SettingsFile); err == nil {
 		Settings = make(map[string][]string)
-		assert.Nil(yaml.Unmarshal(b, Settings))
+		if err = yaml.Unmarshal(b, Settings); err != nil {
+			panic(fmt.Errorf("%s: %v", SettingsFile, err))
+		}
 	}
 	if b, err := ioutil.ReadFile(PrivFlagsFile); err == nil {
 		PrivFlags = make(map[string][]string)
-		assert.Nil(yaml.Unmarshal(b, PrivFlags))
+		if err = yaml.Unmarshal(b, PrivFlags); err != nil {
+			panic(fmt.Errorf("%s: %v", PrivFlagsFile, err))
+		}
 	}
-	for k, args := range Settings {
-		assert.Program(TimeOut, "ethtool", "-s", k, args)
+	for ifname, args := range Settings {
+		ethtool := []string{"ethtool", "-s", ifname}
+		test.Run(append(ethtool, args...)...)
 	}
-	for k, args := range PrivFlags {
-		assert.Program(TimeOut, "ethtool", "--set-priv-flags", k, args)
+	for ifname, args := range PrivFlags {
+		ethtool := []string{"ethtool", "--set-priv-flags", ifname}
+		test.Run(append(ethtool, args...)...)
 	}
 }

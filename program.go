@@ -20,9 +20,6 @@ import (
 // Timeout is the default duration on the Program Wait timer.
 const Timeout = 3 * time.Second
 
-// Self flags Program to run itself
-type Self struct{}
-
 type Quiet struct{}
 
 // Begin a Program; type options:
@@ -144,4 +141,96 @@ again:
 // Pid returns the program process identifier.
 func (p *Program) Pid() int {
 	return p.cmd.Process.Pid
+}
+
+// A Daemon is a background program started and defer stopped from a TestMain.
+type Daemon struct {
+	cmd    *exec.Cmd
+	stdout *bytes.Buffer
+	stderr *bytes.Buffer
+}
+
+func (d *Daemon) Pid() int {
+	return d.cmd.Process.Pid
+}
+
+// Start the daemon program and panic if error.
+func (d *Daemon) Start(args ...string) {
+	d.cmd = exec.Command(args[0], args[1:]...)
+	d.stdout = new(bytes.Buffer)
+	d.stderr = new(bytes.Buffer)
+	d.cmd.Stdout = d.stdout
+	d.cmd.Stderr = d.stderr
+	if *VVV {
+		Log().Output(2, strings.TrimSpace(fmt.Sprintln(args)))
+	}
+	if err := d.cmd.Start(); err != nil {
+		panic(fmt.Errorf("%v: %v", args, err))
+	}
+}
+
+// Stop the running daemon with a TERM, INT, then KILL signal
+func (d *Daemon) Stop() {
+	var err error
+	done := make(chan error)
+	sig := syscall.SIGTERM
+	timeout := 3 * time.Second
+	tm := time.NewTimer(timeout)
+	d.cmd.Process.Signal(sig)
+	go func() { done <- d.cmd.Wait() }()
+again:
+	select {
+	case err = <-done:
+	case <-tm.C:
+		switch sig {
+		case syscall.SIGKILL:
+			Log().Output(2, "won't die!")
+		case syscall.SIGINT:
+			err = syscall.ETIME
+			sig = syscall.SIGKILL
+			timeout *= 2
+			d.cmd.Process.Signal(sig)
+			tm.Reset(timeout)
+			goto again
+		case syscall.SIGTERM:
+			sig = syscall.SIGINT
+			timeout *= 2
+			d.cmd.Process.Signal(sig)
+			tm.Reset(timeout)
+			goto again
+		}
+	}
+	tm.Stop()
+	if err != nil {
+		s := err.Error()
+		for _, b := range []*bytes.Buffer{
+			d.stdout,
+			d.stderr,
+		} {
+			if b.Len() > 0 {
+				s += "\n"
+				s += b.String()
+			}
+		}
+		Log().Output(2, strings.TrimSpace(s))
+	} else if *VV && d.stdout.Len() > 0 {
+		Log().Output(2, d.stdout.String())
+	}
+}
+
+// Run a program - usually from TestMain - and panic if error.
+func Run(args ...string) {
+	if *VVV {
+		Log().Output(2, strings.TrimSpace(fmt.Sprintln(args)))
+	}
+	output, err := exec.Command(args[0], args[1:]...).Output()
+	if *VV && len(output) > 0 {
+		Log().Output(2, string(output))
+	}
+	if err != nil {
+		if *VVV {
+			panic(err)
+		}
+		panic(fmt.Errorf("%v:\n\t%v", args, err))
+	}
 }

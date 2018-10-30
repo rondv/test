@@ -9,9 +9,11 @@ import (
 	"go/build"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 )
 
 // Assert wraps a testing.Test or Benchmark with several assertions.
@@ -135,14 +137,6 @@ func (assert Assert) False(t bool) {
 	}
 }
 
-// YoureRoot skips the calling test if EUID != 0
-func (assert Assert) YoureRoot() {
-	assert.Helper()
-	if os.Geteuid() != 0 {
-		assert.Skip("you aren't root")
-	}
-}
-
 // Verifiy that there is no listener on named Unix socket.
 func (assert Assert) NoListener(atsockname string) {
 	assert.Helper()
@@ -180,4 +174,25 @@ func (assert Assert) Background(options ...interface{}) *Program {
 	p, err := Begin(assert.TB, options...)
 	assert.Nil(err)
 	return p
+}
+
+// Assert ping response to given address w/in 3sec.
+func (assert Assert) Ping(netns, addr string) {
+	const period = 250 * time.Millisecond
+	assert.Helper()
+	xargs := []string{"ping", "-q", "-c", "1", addr}
+	if len(netns) > 0 && netns != "default" {
+		xargs = append([]string{"ip", "netns", "exec", netns},
+			xargs...)
+	}
+	if *VVV {
+		assert.Log(xargs)
+	}
+	for t := 3 * (time.Second / period); t != 0; t-- {
+		if exec.Command(xargs[0], xargs[1:]...).Run() == nil {
+			return
+		}
+		time.Sleep(period)
+	}
+	assert.Fatalf("%s no response", addr)
 }

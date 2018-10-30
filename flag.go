@@ -7,8 +7,6 @@ package test
 import "flag"
 
 var (
-	Goes = flag.String("test.goes", "./goes",
-		"GO Embedded System")
 	DryRun = flag.Bool("test.dryrun", false,
 		"don't run, just print test names")
 	MustPause = flag.Bool("test.pause", false,
