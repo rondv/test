@@ -237,7 +237,7 @@ func ExecCmd(t *testing.T, ID string, config *Config,
 		t.Logf("Error reading output: %v", err)
 		return
 	}
-	out = string(content)
+	out = strings.TrimSpace(string(content))
 
 	ei, err := cli.ContainerExecInspect(ctx, execResp.ID)
 	if err != nil {
@@ -251,7 +251,7 @@ func ExecCmd(t *testing.T, ID string, config *Config,
 		err = fmt.Errorf("[%v] exit code %v", cmd, ei.ExitCode)
 		return
 	}
-	if *test.VV {
+	if *test.VV && len(out) > 0 {
 		t.Log(out)
 	}
 	return
@@ -261,8 +261,6 @@ func PingCmd(t *testing.T, ID string, config *Config, target string) error {
 	t.Helper()
 
 	cmd := []string{"/bin/ping", "-c1", "-W1", target}
-	Comment(t, "In PingCmd", cmd)
-
 	execOpts := types.ExecConfig{
 		Cmd:          cmd,
 		AttachStdout: true,
