@@ -4,13 +4,21 @@
 
 package test
 
-import "flag"
+import (
+	"flag"
+	"testing"
+)
 
 var (
 	DryRun = flag.Bool("test.dryrun", false,
 		"don't run, just print test names")
-	MustPause = flag.Bool("test.pause", false,
-		"pause before and after suite")
-	VV  = flag.Bool("test.vv", false, "log test.Program output")
-	VVV = flag.Bool("test.vvv", false, "log test.Program execution")
+	MustPause = flag.Bool("test.pause", false, "enable program pauses")
+	VV        = flag.Bool("test.vv", false, "log program output")
+	VVV       = flag.Bool("test.vvv", false, "log program execution")
 )
+
+func SkipIfDryRun(t *testing.T) {
+	if *DryRun {
+		t.SkipNow()
+	}
+}
