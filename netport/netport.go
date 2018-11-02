@@ -64,9 +64,7 @@ type NetDevs []NetDev
 
 // netdevs list the interface configurations of the network under test
 func (netdevs NetDevs) Test(t *testing.T, tests ...test.Tester) {
-	if *test.DryRun {
-		t.SkipNow()
-	}
+	test.SkipIfDryRun(t)
 	assert := test.Assert{t}
 	cleanup := test.Cleanup{t}
 	for i := range netdevs {
