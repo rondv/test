@@ -46,17 +46,23 @@ type Route struct {
 	GW     string
 }
 
+type DummyIf struct {
+	Ifname string
+	Ifa    string
+}
+
 // NetDev describes a network interface configuration.  A Vlan > 0 adds a linux
 // vlan device to the named NetPort with the given address; otherwise, the
 // configuration applies to the referenced NetPort.
 type NetDev struct {
-	Vlan    int
-	NetPort string
-	Netns   string
-	Ifname  string
-	Ifa     string
-	Routes  []Route
-	Remotes []string
+	Vlan     int
+	NetPort  string
+	Netns    string
+	Ifname   string
+	Ifa      string
+	DummyIfs []DummyIf
+	Routes   []Route
+	Remotes  []string
 }
 
 // NetDevs describe all of the interfaces in the virtual network under test.

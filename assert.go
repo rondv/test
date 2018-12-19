@@ -6,6 +6,7 @@ package test
 
 import (
 	"bytes"
+	"fmt"
 	"go/build"
 	"io/ioutil"
 	"os"
@@ -158,6 +159,12 @@ func (assert Assert) Program(options ...interface{}) {
 	assert.Nil(p.End())
 }
 
+func (assert Assert) ProgramNonFatal(options ...interface{}) bool {
+	assert.Helper()
+	p, err := Begin(assert.TB, options...)
+	return err == nil && p.End == nil
+}
+
 // ProgramErr asserts that the Program returns matches (v) error (see Error).
 func (assert Assert) ProgramErr(v interface{}, options ...interface{}) {
 	assert.Helper()
@@ -176,11 +183,25 @@ func (assert Assert) Background(options ...interface{}) *Program {
 	return p
 }
 
+func (assert Assert) PingNonFatal(netns, addr string) bool {
+	xargs := []string{"ping", "-q", "-c", "1", "-W", "1", addr}
+	if len(netns) > 0 && netns != "default" {
+		xargs = append([]string{"ip", "netns", "exec", netns},
+			xargs...)
+	}
+	if exec.Command(xargs[0], xargs[1:]...).Run() == nil {
+		return true
+	} else {
+		return false
+	}
+
+}
+
 // Assert ping response to given address w/in 3sec.
 func (assert Assert) Ping(netns, addr string) {
 	const period = 250 * time.Millisecond
 	assert.Helper()
-	xargs := []string{"ping", "-q", "-c", "1", addr}
+	xargs := []string{"ping", "-q", "-c", "1", "-W", "1", addr}
 	if len(netns) > 0 && netns != "default" {
 		xargs = append([]string{"ip", "netns", "exec", netns},
 			xargs...)
@@ -188,11 +209,15 @@ func (assert Assert) Ping(netns, addr string) {
 	if *VVV {
 		assert.Log(xargs)
 	}
-	for t := 3 * (time.Second / period); t != 0; t-- {
+	for t := 1 * (time.Second / period); t != 0; t-- {
 		if exec.Command(xargs[0], xargs[1:]...).Run() == nil {
 			return
 		}
 		time.Sleep(period)
+	}
+	if false {
+		fail_msg := fmt.Sprintf("Failed %v ping %v", netns, addr)
+		Pause(fail_msg)
 	}
 	assert.Fatalf("%s no response", addr)
 }
