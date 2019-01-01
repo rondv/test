@@ -20,6 +20,7 @@ import (
 	"docker.io/go-docker/api/types"
 	"docker.io/go-docker/api/types/container"
 	"github.com/platinasystems/test"
+	"github.com/platinasystems/test/netport"
 	"gopkg.in/yaml.v2"
 )
 
@@ -28,9 +29,12 @@ type Router struct {
 	Hostname string
 	Cmd      string
 	Intfs    []struct {
+		DevType int
+		IsBridge bool
 		Name    string
-		Address string
-		Vlan    string
+		Address string // nil for BRIDGE_PORT
+		Vlan    string // PORT_VLAN or BRIDGE_PORT
+		Upper   string // BRIDGE_PORT
 	}
 	id string
 }
@@ -166,11 +170,30 @@ func LaunchContainers(t *testing.T, source []byte) (config *Config, err error) {
 
 		for _, intf := range router.Intfs {
 			var newIntf string = intf.Name
+			intf.DevType = netport.NETPORT_DEVTYPE_PORT
+			if intf.IsBridge {
+				intf.DevType = netport.NETPORT_DEVTYPE_BRIDGE
+			} else if intf.Vlan != "" {
+				if intf.Upper != "" {
+					intf.DevType = netport.NETPORT_DEVTYPE_BRIDGE_PORT
+				} else {
+					intf.DevType = netport.NETPORT_DEVTYPE_PORT_VLAN
+				}
+			}
+			if *test.VVV {
+				t.Logf("intf %+v\n", intf)
+			}
+			if intf.DevType == netport.NETPORT_DEVTYPE_BRIDGE ||
+				intf.DevType == netport.NETPORT_DEVTYPE_BRIDGE_PORT {
+				t.Log("bridge intf ignored")
+				continue
+			}
 			if strings.Contains(intf.Name, "dummy") {
 				lc.Program("ip", "link", "add", newIntf,
 					"type", "dummy")
 				lc.Program("ip", "link", "set", newIntf, "up")
-			} else if intf.Vlan != "" {
+			} else if intf.DevType == netport.NETPORT_DEVTYPE_PORT_VLAN ||
+				intf.DevType == netport.NETPORT_DEVTYPE_BRIDGE_PORT {
 				newIntf = intf.Name + "." + intf.Vlan
 				lc.Program("ip", "link", "set", intf.Name,
 					"up")
@@ -179,11 +202,13 @@ func LaunchContainers(t *testing.T, source []byte) (config *Config, err error) {
 					"id", intf.Vlan)
 				lc.Program("ip", "link", "set", newIntf, "up")
 			}
-			moveIntfContainer(t, router.Hostname, newIntf,
-				intf.Address)
-			lc.Program("ip", "netns", "exec", router.Hostname,
-				"sysctl", "-w",
-				"net/ipv4/conf/"+newIntf+"/rp_filter=0")
+			if intf.DevType != netport.NETPORT_DEVTYPE_BRIDGE_PORT {
+				moveIntfContainer(t, router.Hostname, newIntf,
+					intf.Address)
+				lc.Program("ip", "netns", "exec", router.Hostname,
+					"sysctl", "-w",
+					"net/ipv4/conf/"+newIntf+"/rp_filter=0")
+			}
 		}
 	}
 	time.Sleep(1 * time.Second)

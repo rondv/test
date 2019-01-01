@@ -11,14 +11,12 @@ var OneNet = NetDevs{
 	{
 		NetPort: "net0port0",
 		Netns:   "h0",
-		Vlan:    0,
 		Ifa:     "10.1.0.0/31",
 		Remotes: []string{"10.1.0.1"},
 	},
 	{
 		NetPort: "net0port1",
 		Netns:   "h1",
-		Vlan:    0,
 		Ifa:     "10.1.0.1/31",
 		Remotes: []string{"10.1.0.0"},
 	},

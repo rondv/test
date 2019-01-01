@@ -12,7 +12,6 @@ var FourNets = NetDevs{
 	{
 		NetPort: "net0port0",
 		Netns:   "h1",
-		Vlan:    0,
 		Ifa:     "10.1.0.0/31",
 		DummyIfs: []DummyIf{
 			{"dummy0", "10.5.5.5"},
@@ -26,7 +25,6 @@ var FourNets = NetDevs{
 	{
 		NetPort: "net0port1",
 		Netns:   "r",
-		Vlan:    0,
 		Ifa:     "10.1.0.1/31",
 		Routes: []Route{
 			{"10.5.5.5", "10.1.0.0"},
@@ -35,7 +33,6 @@ var FourNets = NetDevs{
 	{
 		NetPort: "net1port0",
 		Netns:   "h2",
-		Vlan:    0,
 		Ifa:     "10.1.0.2/31",
 		DummyIfs: []DummyIf{
 			{"dummy0", "10.6.6.6"},
@@ -49,7 +46,6 @@ var FourNets = NetDevs{
 	{
 		NetPort: "net1port1",
 		Netns:   "r",
-		Vlan:    0,
 		Ifa:     "10.1.0.3/31",
 		Routes: []Route{
 			{"10.6.6.6", "10.1.0.2"},
@@ -58,7 +54,6 @@ var FourNets = NetDevs{
 	{
 		NetPort: "net2port0",
 		Netns:   "h1",
-		Vlan:    0,
 		Ifa:     "10.2.0.0/31",
 		Routes: []Route{
 			{"10.2.0.2/31", "10.2.0.1"},
@@ -70,7 +65,6 @@ var FourNets = NetDevs{
 	{
 		NetPort: "net2port1",
 		Netns:   "r",
-		Vlan:    0,
 		Ifa:     "10.2.0.1/31",
 		Routes: []Route{
 			{"10.5.5.5", "10.2.0.0"},
@@ -80,7 +74,6 @@ var FourNets = NetDevs{
 	{
 		NetPort: "net3port0",
 		Netns:   "h2",
-		Vlan:    0,
 		Ifa:     "10.2.0.2/31",
 		Routes: []Route{
 			{"10.2.0.0/31", "10.2.0.3"},
@@ -92,7 +85,6 @@ var FourNets = NetDevs{
 	{
 		NetPort: "net3port1",
 		Netns:   "r",
-		Vlan:    0,
 		Ifa:     "10.2.0.3/31",
 		Routes: []Route{
 			{"10.1.0.2/31", "10.2.0.2"},

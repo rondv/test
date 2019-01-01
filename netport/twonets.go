@@ -12,7 +12,6 @@ var TwoNets = NetDevs{
 	{
 		NetPort: "net0port0",
 		Netns:   "h1",
-		Vlan:    0,
 		Ifa:     "10.1.0.0/31",
 		Routes: []Route{
 			{"10.1.0.2/31", "10.1.0.1"},
@@ -22,13 +21,11 @@ var TwoNets = NetDevs{
 	{
 		NetPort: "net0port1",
 		Netns:   "r",
-		Vlan:    0,
 		Ifa:     "10.1.0.1/31",
 	},
 	{
 		NetPort: "net1port0",
 		Netns:   "h2",
-		Vlan:    0,
 		Ifa:     "10.1.0.2/31",
 		Routes: []Route{
 			{"10.1.0.0/31", "10.1.0.3"},
@@ -38,7 +35,6 @@ var TwoNets = NetDevs{
 	{
 		NetPort: "net1port1",
 		Netns:   "r",
-		Vlan:    0,
 		Ifa:     "10.1.0.3/31",
 	},
 }

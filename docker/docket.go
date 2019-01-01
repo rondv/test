@@ -44,10 +44,10 @@ func (d *Docket) Test(t *testing.T, tests ...test.Tester) {
 	text, err := ioutil.ReadFile(d.Tmpl)
 	assert.Nil(err)
 	name := strings.TrimSuffix(d.Tmpl, ".tmpl")
-	tmpl, err := template.New(name).Parse(string(text))
+	tmpl, err := template.New(name).Parse(string(text)) // read yaml into tmpl
 	assert.Nil(err)
 	buf := new(bytes.Buffer)
-	assert.Nil(tmpl.Execute(buf, netport.PortByNetPort))
+	assert.Nil(tmpl.Execute(buf, netport.PortByNetPort)) // translate tmpl NetPort to Ifname
 	d.Config, err = LaunchContainers(t, buf.Bytes())
 	assert.Nil(err)
 	defer TearDownContainers(t, d.Config)
