@@ -24,9 +24,10 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+// initial values filled from yaml, then DevType and Name updated
 type Router struct {
 	Image    string
-	Hostname string
+	Hostname string // netns
 	Cmd      string
 	Intfs    []struct {
 		DevType int
@@ -169,8 +170,6 @@ func LaunchContainers(t *testing.T, source []byte) (config *Config, err error) {
 			"sysctl", "-w", "net/ipv4/conf/all/rp_filter=0")
 
 		for _, intf := range router.Intfs {
-			var newIntf string = intf.Name
-			intf.DevType = netport.NETPORT_DEVTYPE_PORT
 			if intf.IsBridge {
 				intf.DevType = netport.NETPORT_DEVTYPE_BRIDGE
 			} else if intf.Vlan != "" {
@@ -179,35 +178,43 @@ func LaunchContainers(t *testing.T, source []byte) (config *Config, err error) {
 				} else {
 					intf.DevType = netport.NETPORT_DEVTYPE_PORT_VLAN
 				}
+			} else {
+				intf.DevType = netport.NETPORT_DEVTYPE_PORT
 			}
-			if *test.VVV {
-				t.Logf("intf %+v\n", intf)
-			}
-			if intf.DevType == netport.NETPORT_DEVTYPE_BRIDGE ||
-				intf.DevType == netport.NETPORT_DEVTYPE_BRIDGE_PORT {
-				t.Log("bridge intf ignored")
-				continue
-			}
+			ns := router.Hostname
 			if strings.Contains(intf.Name, "dummy") {
-				lc.Program("ip", "link", "add", newIntf,
+				lc.Program("ip", "link", "add", intf.Name,
 					"type", "dummy")
-				lc.Program("ip", "link", "set", newIntf, "up")
-			} else if intf.DevType == netport.NETPORT_DEVTYPE_PORT_VLAN ||
-				intf.DevType == netport.NETPORT_DEVTYPE_BRIDGE_PORT {
-				newIntf = intf.Name + "." + intf.Vlan
-				lc.Program("ip", "link", "set", intf.Name,
-					"up")
+				lc.Program("ip", "link", "set", intf.Name, "up")
+			} else if intf.Vlan != "" {
+				newIntf := intf.Name + "." + intf.Vlan
+				lc.Program("ip", "link", "set", intf.Name, "up")
 				lc.Program("ip", "link", "add", newIntf,
 					"link", intf.Name, "type", "vlan",
 					"id", intf.Vlan)
 				lc.Program("ip", "link", "set", newIntf, "up")
+				intf.Name = newIntf
+			} else if intf.DevType == netport.NETPORT_DEVTYPE_BRIDGE {
+				lc.Program("ip", "netns", "exec", ns,
+					"ip", "link", "add", intf.Name, "type", "bridge")
+				lc.Program("ip", "netns", "exec", ns,
+					"ip", "addr", "add", intf.Address, "dev", intf.Name)
+				lc.Program("ip", "netns", "exec", ns,
+					"ip", "link", "set", intf.Name, "up")
 			}
-			if intf.DevType != netport.NETPORT_DEVTYPE_BRIDGE_PORT {
-				moveIntfContainer(t, router.Hostname, newIntf,
-					intf.Address)
-				lc.Program("ip", "netns", "exec", router.Hostname,
-					"sysctl", "-w",
-					"net/ipv4/conf/"+newIntf+"/rp_filter=0")
+			if intf.DevType == netport.NETPORT_DEVTYPE_BRIDGE_PORT {
+				lc.Program("ip", "netns", "exec", ns,
+					"ip", "link", "set", intf.Name, "master", intf.Upper)
+			}
+			if intf.DevType != netport.NETPORT_DEVTYPE_BRIDGE {
+				moveIntfContainer(t, ns, intf.Name, intf.Address)
+			}
+			lc.Program("ip", "netns", "exec", ns,
+				"sysctl", "-w",
+				"net/ipv4/conf/"+intf.Name+"/rp_filter=0")
+			
+			if *test.VVV {
+				t.Logf("intf %+v\n", intf)
 			}
 		}
 	}
@@ -352,15 +359,18 @@ func TearDownContainers(t *testing.T, config *Config) {
 	td := test.Cleanup{t}
 	for _, r := range config.Routers {
 		for _, intf := range r.Intfs {
-			if intf.Vlan != "" {
-				newIntf := intf.Name + "." + intf.Vlan
-				moveIntfDefault(t, r.Hostname, newIntf)
-				td.Program("ip", "link", "del", newIntf)
-			} else if strings.Contains(intf.Name, "dummy") {
+			if intf.DevType != netport.NETPORT_DEVTYPE_BRIDGE {
 				moveIntfDefault(t, r.Hostname, intf.Name)
-				td.Program("ip", "link", "del", intf.Name)
-			} else {
-				moveIntfDefault(t, r.Hostname, intf.Name)
+				if intf.Vlan != "" {
+					td.Program("ip", "link", "del", intf.Name)
+				}
+			}
+		}
+		// delete bridge after members moved to default and deleted
+		for _, intf := range r.Intfs {
+			if intf.DevType == netport.NETPORT_DEVTYPE_BRIDGE {
+				td.Program("ip", "netns", "exec", r.Hostname,
+					"ip", "link", "del", intf.Name)
 			}
 		}
 		err := stopContainer(t, config, r.Hostname, r.id)
@@ -519,7 +529,9 @@ func moveIntfContainer(t *testing.T, container string, intf string,
 	assert.Program("ip", "-n", container, "link", "set", "up", "lo")
 	assert.Program("ip", "-n", container, "link", "set", "down", intf)
 	assert.Program("ip", "-n", container, "link", "set", "up", intf)
-	assert.Program("ip", "-n", container, "addr", "add", addr, "dev", intf)
+	if addr != "" {
+		assert.Program("ip", "-n", container, "addr", "add", addr, "dev", intf)
+	}
 	return nil
 }
 

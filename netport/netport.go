@@ -64,11 +64,12 @@ const (
 // BRIDGE adds a linux bridge device with ifname and ifa
 // PORT_VLAN adds a linux vlan device to ifname derived from NetPort with ifa
 // BRIDGE_PORT adds a linux vlan device and sets upper to named bridge (no ifa)
+// initial values filled from NetDev[], then DevType and Ifname updated
 type NetDev struct {
 	DevType  int
 	IsBridge bool
 	Vlan     int // for PORT_VLAN or BRIDGE_PORT
-	NetPort  string
+	NetPort  string // lookup key for NetPortFile to Ifname
 	Netns    string
 	Ifname   string
 	Upper    string // only for BRIDGE_PORT
@@ -89,7 +90,6 @@ func (netdevs NetDevs) Test(t *testing.T, tests ...test.Tester) {
 	cleanup := test.Cleanup{t}
 	for i := range netdevs {
 		nd := &netdevs[i]
-		nd.DevType = NETPORT_DEVTYPE_PORT
 		if nd.IsBridge {
 			nd.DevType = NETPORT_DEVTYPE_BRIDGE
 		} else if nd.Vlan != 0 {
@@ -98,13 +98,8 @@ func (netdevs NetDevs) Test(t *testing.T, tests ...test.Tester) {
 			} else {
 				nd.DevType = NETPORT_DEVTYPE_PORT_VLAN
 			}
-		}
-		if *test.VVV {
-			t.Logf("nd %+v\n", nd)
-		}
-		if nd.DevType == NETPORT_DEVTYPE_BRIDGE || nd.DevType == NETPORT_DEVTYPE_BRIDGE_PORT {
-			t.Log("bridge ignored")
-			continue
+		} else {
+			nd.DevType = NETPORT_DEVTYPE_PORT
 		}
 
 		ns := nd.Netns
@@ -114,32 +109,47 @@ func (netdevs NetDevs) Test(t *testing.T, tests ...test.Tester) {
 			defer cleanup.Program("ip", "netns", "del", ns)
 		}
 
-		ifname := PortByNetPort[nd.NetPort]
-		if nd.DevType == NETPORT_DEVTYPE_PORT_VLAN ||
-			nd.DevType == NETPORT_DEVTYPE_BRIDGE_PORT {
-			link := ifname
-			ifname += fmt.Sprint(".", nd.Vlan)
-			assert.Program("ip", "link", "set", link, "up")
-			assert.Program("ip", "link", "add", ifname,
-				"link", link, "type", "vlan",
-				"id", nd.Vlan)
-			defer cleanup.Program("ip", "link", "del",
-				ifname)
+		if nd.DevType == NETPORT_DEVTYPE_BRIDGE {
+			assert.Program("ip", "netns", "exec", ns,
+				"ip", "link", "add", nd.Ifname, "type", "bridge")
+			assert.Program("ip", "netns", "exec", ns,
+				"ip", "link", "set", nd.Ifname, "up")
+			defer cleanup.Program("ip", "netns", "exec", ns,
+				"ip", "link", "del", nd.Ifname)
+		} else {
+			ifname := PortByNetPort[nd.NetPort]
+			if nd.Vlan != 0 {
+				link := ifname
+				ifname += fmt.Sprint(".", nd.Vlan)
+				assert.Program("ip", "link", "set", link, "up")
+				assert.Program("ip", "link", "add", ifname,
+					"link", link, "type", "vlan",
+					"id", nd.Vlan)
+				defer cleanup.Program("ip", "link", "del",
+					ifname)
+			}
+			nd.Ifname = ifname
+			assert.Program("ip", "link", "set", nd.Ifname, "up",
+				"netns", ns)
+			defer cleanup.Program("ip", "netns", "exec", ns,
+				"ip", "link", "set", nd.Ifname, "down",
+				"netns", 1)
 		}
-		nd.Ifname = ifname
-		assert.Program("ip", "link", "set", ifname, "up",
-			"netns", ns)
-		defer cleanup.Program("ip", "netns", "exec", ns,
-			"ip", "link", "set", ifname, "down",
-			"netns", 1)
 
-		if nd.DevType != NETPORT_DEVTYPE_BRIDGE_PORT {
+
+		if nd.DevType == NETPORT_DEVTYPE_BRIDGE_PORT {
+			t.Logf("nd master %v\n", nd.Upper) // FIXME
+			assert.Program("ip", "netns", "exec", ns,
+				"ip", "link", "set", nd.Ifname, "master", nd.Upper)
+			defer cleanup.Program("ip", "netns", "exec", ns,
+				"ip", "link", "set", nd.Ifname, "nomaster", nd.Upper)
+		} else {
 			assert.Program("ip", "netns", "exec", ns,
 				"ip", "address", "add", nd.Ifa,
-				"dev", ifname)
+				"dev", nd.Ifname)
 			defer cleanup.Program("ip", "netns", "exec", ns,
 				"ip", "address", "del", nd.Ifa,
-				"dev", ifname)
+				"dev", nd.Ifname)
 			for _, route := range nd.Routes {
 				prefix := route.Prefix
 				gw := route.GW
@@ -147,6 +157,9 @@ func (netdevs NetDevs) Test(t *testing.T, tests ...test.Tester) {
 					"ip", "route", "add", prefix,
 					"via", gw)
 			}
+		}
+		if *test.VVV {
+			t.Logf("nd %+v\n", nd)
 		}
 	}
 	test.Tests(tests).Test(t)
