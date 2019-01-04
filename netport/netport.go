@@ -142,8 +142,8 @@ func (netdevs NetDevs) Test(t *testing.T, tests ...test.Tester) {
 			assert.Program("ip", "netns", "exec", ns,
 				"ip", "link", "set", nd.Ifname, "master", nd.Upper)
 			defer cleanup.Program("ip", "netns", "exec", ns,
-				"ip", "link", "set", nd.Ifname, "nomaster", nd.Upper)
-		} else {
+				"ip", "link", "set", nd.Ifname, "nomaster")
+		} else if nd.Ifa != "" {
 			assert.Program("ip", "netns", "exec", ns,
 				"ip", "address", "add", nd.Ifa,
 				"dev", nd.Ifname)
