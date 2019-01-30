@@ -60,19 +60,21 @@ const (
 
 // NetDev describes a network interface configuration.
 // DevType is determined by IsBridge, Vlan, and Upper
-// default PORT sets ifa for ifname derived from NetPort 
+// default PORT sets ifa for ifname derived from NetPort
 // BRIDGE adds a linux bridge device with ifname and ifa
 // PORT_VLAN adds a linux vlan device to ifname derived from NetPort with ifa
 // BRIDGE_PORT adds a linux vlan device and sets upper to named bridge (no ifa)
 // initial values filled from NetDev[], then DevType and Ifname updated
 type NetDev struct {
-	DevType  int
-	IsBridge bool
-	Vlan     int // for PORT_VLAN or BRIDGE_PORT
-	NetPort  string // lookup key for NetPortFile to Ifname
-	Netns    string
-	Ifname   string
-	Upper    string // only for BRIDGE_PORT
+	DevType       int
+	IsBridge      bool
+	BridgeIfindex int // for BRIDGE to avoid netns overlap
+	BridgeMac     string
+	Vlan          int    // for PORT_VLAN or BRIDGE_PORT
+	NetPort       string // lookup key for NetPortFile to Ifname
+	Netns         string
+	Ifname        string
+	Upper         string // only for BRIDGE_PORT
 
 	Ifa      string // no ifa for BRIDGE_PORT
 	DummyIfs []DummyIf
@@ -110,8 +112,22 @@ func (netdevs NetDevs) Test(t *testing.T, tests ...test.Tester) {
 		}
 
 		if nd.DevType == NETPORT_DEVTYPE_BRIDGE {
-			assert.Program("ip", "netns", "exec", ns,
-				"ip", "link", "add", nd.Ifname, "type", "bridge")
+			if nd.BridgeIfindex != 0 {
+				assert.Program("ip", "netns", "exec", ns,
+					"ip", "link", "add", nd.Ifname,
+					"index", nd.BridgeIfindex,
+					"type", "bridge")
+			} else {
+				assert.Program("ip", "netns", "exec", ns,
+					"ip", "link", "add", nd.Ifname,
+					"type", "bridge")
+			}
+
+			if false && nd.BridgeMac != "" {
+				assert.Program("ip", "netns", "exec", ns,
+					"ip", "link", "set", nd.Ifname,
+					"address", nd.BridgeMac)
+			}
 			assert.Program("ip", "netns", "exec", ns,
 				"ip", "link", "set", nd.Ifname, "up")
 			defer cleanup.Program("ip", "netns", "exec", ns,
@@ -136,9 +152,7 @@ func (netdevs NetDevs) Test(t *testing.T, tests ...test.Tester) {
 				"netns", 1)
 		}
 
-
 		if nd.DevType == NETPORT_DEVTYPE_BRIDGE_PORT {
-			t.Logf("nd master %v\n", nd.Upper) // FIXME
 			assert.Program("ip", "netns", "exec", ns,
 				"ip", "link", "set", nd.Ifname, "master", nd.Upper)
 			defer cleanup.Program("ip", "netns", "exec", ns,

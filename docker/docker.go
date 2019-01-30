@@ -30,12 +30,12 @@ type Router struct {
 	Hostname string // netns
 	Cmd      string
 	Intfs    []struct {
-		DevType int
+		DevType  int
 		IsBridge bool
-		Name    string
-		Address string // nil for BRIDGE_PORT
-		Vlan    string // PORT_VLAN or BRIDGE_PORT
-		Upper   string // BRIDGE_PORT
+		Name     string
+		Address  string // nil for BRIDGE_PORT
+		Vlan     string // PORT_VLAN or BRIDGE_PORT
+		Upper    string // BRIDGE_PORT
 	}
 	id string
 }
@@ -212,7 +212,7 @@ func LaunchContainers(t *testing.T, source []byte) (config *Config, err error) {
 			lc.Program("ip", "netns", "exec", ns,
 				"sysctl", "-w",
 				"net/ipv4/conf/"+intf.Name+"/rp_filter=0")
-			
+
 			if *test.VVV {
 				t.Logf("intf %+v\n", intf)
 			}
@@ -358,12 +358,20 @@ func TearDownContainers(t *testing.T, config *Config) {
 	t.Helper()
 	td := test.Cleanup{t}
 	for _, r := range config.Routers {
+
 		for _, intf := range r.Intfs {
-			if intf.DevType != netport.NETPORT_DEVTYPE_BRIDGE {
+			if intf.DevType == netport.NETPORT_DEVTYPE_BRIDGE {
+				continue
+			}
+			if intf.Vlan != "" {
+				newIntf := intf.Name + "." + intf.Vlan
+				moveIntfDefault(t, r.Hostname, newIntf)
+				td.Program("ip", "link", "del", newIntf)
+			} else if strings.Contains(intf.Name, "dummy") {
 				moveIntfDefault(t, r.Hostname, intf.Name)
-				if intf.Vlan != "" {
-					td.Program("ip", "link", "del", intf.Name)
-				}
+				td.Program("ip", "link", "del", intf.Name)
+			} else {
+				moveIntfDefault(t, r.Hostname, intf.Name)
 			}
 		}
 		// delete bridge after members moved to default and deleted
