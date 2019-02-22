@@ -86,6 +86,10 @@ var BridgeNets2 = NetDevs{
 		BridgeIfindex: BridgeIndexBase + 0,
 		Ifname:        "tb1",
 		BridgeMac:     "00:00:02:b1:b1:b1",
+		Ifa:           "10.1.0.20/24",
+		Routes: []Route{
+			{"default", "10.1.0.1"},
+		},
 	},
 	{
 		Netns:   "b1",
