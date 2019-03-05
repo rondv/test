@@ -162,7 +162,7 @@ func (assert Assert) Program(options ...interface{}) {
 func (assert Assert) ProgramNonFatal(options ...interface{}) bool {
 	assert.Helper()
 	p, err := Begin(assert.TB, options...)
-	return err == nil && p.End == nil
+	return err == nil && p.End() == nil
 }
 
 // ProgramErr asserts that the Program returns matches (v) error (see Error).
