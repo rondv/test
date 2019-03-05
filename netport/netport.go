@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/platinasystems/test"
 	"gopkg.in/yaml.v2"
@@ -20,9 +21,11 @@ import (
 
 const NetPortFile = "testdata/netport.yaml"
 
+var Goes string
 var PortByNetPort, NetPortByPort map[string]string
 
-func Init() {
+func Init(goes string) {
+	Goes = goes
 	b, err := ioutil.ReadFile(NetPortFile)
 	if err != nil {
 		panic(err)
@@ -107,69 +110,76 @@ func (netdevs NetDevs) Test(t *testing.T, tests ...test.Tester) {
 		ns := nd.Netns
 		_, err := os.Stat(filepath.Join("/var/run/netns", ns))
 		if err != nil {
-			assert.Program("ip", "netns", "add", ns)
-			defer cleanup.Program("ip", "netns", "del", ns)
+			assert.Program(Goes, "ip", "netns", "add", ns)
+			defer cleanup.Program(Goes, "ip", "netns", "del", ns)
 		}
 
 		if nd.DevType == NETPORT_DEVTYPE_BRIDGE {
 			if nd.BridgeIfindex != 0 {
-				assert.Program("ip", "netns", "exec", ns,
-					"ip", "link", "add", nd.Ifname,
+				assert.Program(Goes, "ip", "-n", ns,
+					"link", "add", nd.Ifname,
 					"index", nd.BridgeIfindex,
 					"type", "bridge")
 			} else {
-				assert.Program("ip", "netns", "exec", ns,
-					"ip", "link", "add", nd.Ifname,
+				assert.Program(Goes, "ip", "-n", ns,
+					"link", "add", nd.Ifname,
 					"type", "bridge")
 			}
 
 			if false && nd.BridgeMac != "" {
-				assert.Program("ip", "netns", "exec", ns,
-					"ip", "link", "set", nd.Ifname,
+				assert.Program(Goes, "ip", "-n", ns,
+					"link", "set", nd.Ifname,
 					"address", nd.BridgeMac)
 			}
-			assert.Program("ip", "netns", "exec", ns,
-				"ip", "link", "set", nd.Ifname, "up")
-			defer cleanup.Program("ip", "netns", "exec", ns,
-				"ip", "link", "del", nd.Ifname)
+			assert.Program(Goes, "ip", "-n", ns,
+				"link", "set", nd.Ifname, "up")
+			defer cleanup.Program(Goes, "ip", "-n", ns,
+				"link", "del", nd.Ifname)
 		} else {
 			ifname := PortByNetPort[nd.NetPort]
 			if nd.Vlan != 0 {
 				link := ifname
 				ifname += fmt.Sprint(".", nd.Vlan)
-				assert.Program("ip", "link", "set", link, "up")
-				assert.Program("ip", "link", "add", ifname,
-					"link", link, "type", "vlan",
+				assert.Program(Goes, "ip", "link", "set", link,
+					"up")
+				assert.Program(Goes, "ip", "link", "add",
+					ifname, "link", link, "type", "vlan",
 					"id", nd.Vlan)
-				defer cleanup.Program("ip", "link", "del",
-					ifname)
+				defer cleanup.Program(Goes, "ip", "link",
+					"del", ifname)
 			}
 			nd.Ifname = ifname
-			assert.Program("ip", "link", "set", nd.Ifname, "up",
-				"netns", ns)
-			defer cleanup.Program("ip", "netns", "exec", ns,
-				"ip", "link", "set", nd.Ifname, "down",
-				"netns", 1)
+			assert.Program(Goes, "ip", "link", "set", nd.Ifname,
+				"up", "netns", ns)
+			defer cleanup.Program(Goes, "ip", "-n", ns,
+				"link", "set", nd.Ifname, "down", "netns", 1)
 		}
 
 		if nd.DevType == NETPORT_DEVTYPE_BRIDGE_PORT {
-			assert.Program("ip", "netns", "exec", ns,
-				"ip", "link", "set", nd.Ifname, "master", nd.Upper)
-			defer cleanup.Program("ip", "netns", "exec", ns,
-				"ip", "link", "set", nd.Ifname, "nomaster")
+			assert.Program(Goes, "ip", "-n", ns,
+				"link", "set", nd.Ifname, "master", nd.Upper)
+			defer cleanup.Program(Goes, "ip", "-n", ns,
+				"link", "set", nd.Ifname, "nomaster")
 		} else if nd.Ifa != "" {
-			assert.Program("ip", "netns", "exec", ns,
-				"ip", "address", "add", nd.Ifa,
-				"dev", nd.Ifname)
-			defer cleanup.Program("ip", "netns", "exec", ns,
-				"ip", "address", "del", nd.Ifa,
-				"dev", nd.Ifname)
+			var done bool
+			vargs := []interface{}{Goes, "ip", "-n", ns,
+				"address", "add", nd.Ifa, "dev", nd.Ifname}
+			for tries := 0; !done && tries < 3; tries++ {
+				if tries > 0 {
+					time.Sleep(time.Second)
+				}
+				done = assert.ProgramNonFatal(vargs...)
+			}
+			if !done {
+				assert.Program(vargs)
+			}
+			defer cleanup.Program(Goes, "ip", "-n", ns,
+				"address", "del", nd.Ifa, "dev", nd.Ifname)
 			for _, route := range nd.Routes {
 				prefix := route.Prefix
 				gw := route.GW
-				assert.Program("ip", "netns", "exec", ns,
-					"ip", "route", "add", prefix,
-					"via", gw)
+				assert.Program(Goes, "ip", "-n", ns,
+					"route", "add", prefix, "via", gw)
 			}
 		}
 		if *test.VVV {
