@@ -173,6 +173,21 @@ func (assert Assert) ProgramErr(v interface{}, options ...interface{}) {
 	assert.Error(p.End(), true)
 }
 
+func (assert Assert) ProgramRetry(tries int, options ...interface{}) {
+	var err error
+	var p *Program
+	assert.Helper()
+	for try := 0; try < tries; try++ {
+		p, err = Begin(assert.TB, options...)
+		assert.Nil(err)
+		if err = p.End(); err == nil {
+			return
+		}
+		time.Sleep(time.Second)
+	}
+	assert.Nil(err)
+}
+
 // Background Program after asserting that it starts without error.
 // Usage:
 //	defer Assert{t}.Background(...).Quit()

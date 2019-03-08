@@ -13,7 +13,6 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/platinasystems/test"
 	"gopkg.in/yaml.v2"
@@ -149,8 +148,8 @@ func (netdevs NetDevs) Test(t *testing.T, tests ...test.Tester) {
 					"del", ifname)
 			}
 			nd.Ifname = ifname
-			assert.Program(Goes, "ip", "link", "set", nd.Ifname,
-				"up", "netns", ns)
+			assert.ProgramRetry(3, Goes, "ip", "link", "set",
+				nd.Ifname, "up", "netns", ns)
 			defer cleanup.Program(Goes, "ip", "-n", ns,
 				"link", "set", nd.Ifname, "down", "netns", 1)
 		}
@@ -161,18 +160,8 @@ func (netdevs NetDevs) Test(t *testing.T, tests ...test.Tester) {
 			defer cleanup.Program(Goes, "ip", "-n", ns,
 				"link", "set", nd.Ifname, "nomaster")
 		} else if nd.Ifa != "" {
-			var done bool
-			vargs := []interface{}{Goes, "ip", "-n", ns,
-				"address", "add", nd.Ifa, "dev", nd.Ifname}
-			for tries := 0; !done && tries < 3; tries++ {
-				if tries > 0 {
-					time.Sleep(time.Second)
-				}
-				done = assert.ProgramNonFatal(vargs...)
-			}
-			if !done {
-				assert.Program(vargs)
-			}
+			assert.ProgramRetry(3, Goes, "ip", "-n", ns,
+				"address", "add", nd.Ifa, "dev", nd.Ifname)
 			defer cleanup.Program(Goes, "ip", "-n", ns,
 				"address", "del", nd.Ifa, "dev", nd.Ifname)
 			for _, route := range nd.Routes {
