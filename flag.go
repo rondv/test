@@ -13,6 +13,7 @@ var (
 	DryRun = flag.Bool("test.dryrun", false,
 		"don't run, just print test names")
 	MustPause = flag.Bool("test.pause", false, "enable program pauses")
+	MustStep  = flag.Bool("test.step", false, "enable single step")
 	VV        = flag.Bool("test.vv", false, "log program output")
 	VVV       = flag.Bool("test.vvv", false, "log program execution")
 )

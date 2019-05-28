@@ -29,26 +29,21 @@ type Tests []Tester
 
 func (tests Tests) Test(t *testing.T) {
 	t.Helper()
-	Pause("before tests")
 	for _, v := range tests {
 		if t.Failed() {
 			break
 		}
 		name := v.String()
 		if suite, ok := v.(Suite); ok {
-			Pause("before ", name)
 			t.Run(name, suite.Test)
-			Pause("after ", name)
 		} else {
 			t.Run(name, func(t *testing.T) {
 				t.Helper()
 				if !*DryRun {
-					Pause("before ", v)
+					Prompt(MustStep, v)
 					v.Test(t)
-					Pause("after ", v)
 				}
 			})
 		}
 	}
-	Pause("after tests")
 }
