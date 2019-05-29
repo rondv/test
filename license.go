@@ -1,7 +1,7 @@
 package test
 
 const License = `
-Copyright © 2015-2018 Platina Systems, Inc. All rights reserved.
+Copyright © 2015-2019 Platina Systems, Inc. All rights reserved.
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
