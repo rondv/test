@@ -1,4 +1,4 @@
-// Copyright © 2015-2018 Platina Systems, Inc. All rights reserved.
+// Copyright © 2015-2019 Platina Systems, Inc. All rights reserved.
 // Use of this source code is governed by the GPL-2 license described in the
 // LICENSE file.
 
@@ -13,6 +13,7 @@ var (
 	DryRun = flag.Bool("test.dryrun", false,
 		"don't run, just print test names")
 	MustPause = flag.Bool("test.pause", false, "enable program pauses")
+	MustStep  = flag.Bool("test.step", false, "pause between each test")
 	VV        = flag.Bool("test.vv", false, "log program output")
 	VVV       = flag.Bool("test.vvv", false, "log program execution")
 )
