@@ -11,82 +11,87 @@ import (
 	"testing"
 )
 
-func expect(t *testing.T, want, got string) {
-	t.Helper()
-	if want != got {
-		t.Fatalf("want: %q\ngot: %q", want, got)
-	}
-	t.Logf("OK, got: %q", got)
-}
-
-func TestStep(t *testing.T) {
-	in := new(bytes.Buffer)
-	got := new(bytes.Buffer)
+func TestPrompt(t *testing.T) {
+	in := &bytes.Buffer{}
+	out := &bytes.Buffer{}
 	promptIn = in
-	promptOut = got
-	step.set()
-	fmt.Fprintln(in)
-	if err := step.Prompt("step-1"); err != nil {
-		t.Fatal(err)
+	promptOut = out
+	expect := func(want string) {
+		t.Helper()
+		got := out.String()
+		if want != got {
+			t.Fatalf("want: %q\ngot: %q", want, got)
+		}
+		t.Logf("OK, got: %q", got)
 	}
-	if !step.Flag() {
-		t.Fatal("not again")
+	for _, p := range []*prompt{&step, &Pause} {
+		t.Run(p.String(), func(t *testing.T) {
+			for i, f := range []func(*testing.T){
+				func(t *testing.T) {
+					const t0 = "test-0"
+					in.Reset()
+					out.Reset()
+					p.reset()
+					if err := p.Prompt(t0); err != nil {
+						t.Fatal(err)
+					}
+					expect("")
+				},
+				func(t *testing.T) {
+					const t1 = "test-1"
+					in.Reset()
+					out.Reset()
+					p.set()
+					fmt.Fprintln(in)
+					if err := p.Prompt(t1); err != nil {
+						t.Fatal(err)
+					}
+					if !p.Flag() {
+						t.Fatal("not again")
+					}
+					expect(t1 + "; " + p.s + promptSuffix)
+				},
+				func(t *testing.T) {
+					const t2 = "test-2"
+					in.Reset()
+					out.Reset()
+					p.set()
+					fmt.Fprintln(in, "no")
+					if err := p.Prompt(t2); err != nil {
+						t.Fatal(err)
+					}
+					if p.Flag() {
+						t.Fatal("not continued")
+					}
+					expect(t2 + "; " + p.s + promptSuffix)
+				},
+				func(t *testing.T) {
+					const t3 = "test-3"
+					in.Reset()
+					out.Reset()
+					p.set()
+					if err := p.Prompt(t3); err != io.EOF {
+						t.Fatalf("quit, %v", err)
+					}
+					if p.Flag() {
+						t.Fatal("not continued")
+					}
+					expect(t3 + "; " + p.s + promptSuffix)
+				},
+				func(t *testing.T) {
+					const t4 = "test-4"
+					in.Reset()
+					out.Reset()
+					p.set()
+					fmt.Fprintln(in, "quit")
+					if err := p.Prompt(t4); err != io.EOF {
+						t.Fatalf("quit, %v", err)
+					}
+					expect(t4 + "; " + p.s + promptSuffix)
+				},
+			} {
+				t.Run(fmt.Sprint(i), f)
+			}
+		})
 	}
-	expect(t, "step-1; step"+promptSuffix, got.String())
-	got.Reset()
-	fmt.Fprintln(in, "no")
-	if err := step.Prompt("step-2"); err != nil {
-		t.Fatal(err)
-	}
-	if step.Flag() {
-		t.Fatal("not continued")
-	}
-	expect(t, "step-2; step"+promptSuffix, got.String())
-	got.Reset()
-	step.set()
-	in.Reset()
-	if err := step.Prompt("step-3"); err != io.EOF {
-		t.Fatalf("failed to quit, %v", err)
-	}
-	if step.Flag() {
-		t.Fatal("not continued")
-	}
-	expect(t, "step-3; step"+promptSuffix, got.String())
-	got.Reset()
-}
-
-func TestPause(t *testing.T) {
-	in := new(bytes.Buffer)
-	got := new(bytes.Buffer)
-	promptIn = in
-	promptOut = got
-	Pause.set()
-	fmt.Fprintln(in)
-	if err := Pause.Prompt("pause-1"); err != nil {
-		t.Fatal(err)
-	}
-	if !Pause.Flag() {
-		t.Fatal("not again")
-	}
-	expect(t, "pause-1; pause"+promptSuffix, got.String())
-	got.Reset()
-	fmt.Fprintln(in, "no")
-	if err := Pause.Prompt("pause-2"); err != nil {
-		t.Fatal(err)
-	}
-	if Pause.Flag() {
-		t.Fatal("not continued")
-	}
-	expect(t, "pause-2; pause"+promptSuffix, got.String())
-	got.Reset()
-	Pause.set()
-	in.Reset()
-	if err := Pause.Prompt("pause-3"); err != io.EOF {
-		t.Fatalf("failed to quit, %v", err)
-	}
-	if Pause.Flag() {
-		t.Fatal("not continued")
-	}
-	expect(t, "pause-3; pause"+promptSuffix, got.String())
-	got.Reset()
 }
