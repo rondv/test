@@ -12,10 +12,8 @@ import (
 var (
 	DryRun = flag.Bool("test.dryrun", false,
 		"don't run, just print test names")
-	MustPause = flag.Bool("test.pause", false, "enable program pauses")
-	MustStep  = flag.Bool("test.step", false, "pause between each test")
-	VV        = flag.Bool("test.vv", false, "log program output")
-	VVV       = flag.Bool("test.vvv", false, "log program execution")
+	VV  = flag.Bool("test.vv", false, "log program output")
+	VVV = flag.Bool("test.vvv", false, "log program execution")
 )
 
 func SkipIfDryRun(t *testing.T) {

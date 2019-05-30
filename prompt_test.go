@@ -19,60 +19,74 @@ func expect(t *testing.T, want, got string) {
 	t.Logf("OK, got: %q", got)
 }
 
-func TestPrompt(t *testing.T) {
+func TestStep(t *testing.T) {
 	in := new(bytes.Buffer)
 	got := new(bytes.Buffer)
 	promptIn = in
 	promptOut = got
-	*MustStep = true
+	step.set()
 	fmt.Fprintln(in)
-	if err := prompt("step-1"); err != nil {
+	if err := step.Prompt("step-1"); err != nil {
 		t.Fatal(err)
 	}
-	if !*MustStep {
-		t.Fatal("misstep")
+	if !step.Flag() {
+		t.Fatal("not again")
 	}
-	expect(t, promptHeading+"\nstep-1"+promptSuffix, got.String())
+	expect(t, "step-1; step"+promptSuffix, got.String())
 	got.Reset()
-	fmt.Fprintln(in, "yes")
-	if err := prompt("step-2"); err != nil {
+	fmt.Fprintln(in, "no")
+	if err := step.Prompt("step-2"); err != nil {
 		t.Fatal(err)
 	}
-	if *MustStep {
+	if step.Flag() {
 		t.Fatal("not continued")
 	}
-	expect(t, "step-2"+promptSuffix, got.String())
+	expect(t, "step-2; step"+promptSuffix, got.String())
 	got.Reset()
-	*MustPause = true
-	fmt.Fprintln(in)
-	if err := prompt("pause-1"); err != nil {
-		t.Fatal(err)
-	}
-	if !*MustPause {
-		t.Fatal("unpaused")
-	}
-	expect(t, "pause-1"+promptSuffix, got.String())
-	got.Reset()
-	fmt.Fprintln(in, "yes")
-	if err := prompt("pause-2"); err != nil {
-		t.Fatal(err)
-	}
-	if *MustPause {
-		t.Fatal("still paused")
-	}
-	expect(t, "pause-2"+promptSuffix, got.String())
-	got.Reset()
-	*MustPause = true
+	step.set()
 	in.Reset()
-	if err := prompt("pause-3"); err != io.EOF {
+	if err := step.Prompt("step-3"); err != io.EOF {
 		t.Fatalf("failed to quit, %v", err)
 	}
-	if *MustPause {
-		t.Fatal("still paused")
-	}
-	if *MustStep {
+	if step.Flag() {
 		t.Fatal("not continued")
 	}
-	expect(t, "pause-3"+promptSuffix, got.String())
+	expect(t, "step-3; step"+promptSuffix, got.String())
+	got.Reset()
+}
+
+func TestPause(t *testing.T) {
+	in := new(bytes.Buffer)
+	got := new(bytes.Buffer)
+	promptIn = in
+	promptOut = got
+	Pause.set()
+	fmt.Fprintln(in)
+	if err := Pause.Prompt("pause-1"); err != nil {
+		t.Fatal(err)
+	}
+	if !Pause.Flag() {
+		t.Fatal("not again")
+	}
+	expect(t, "pause-1; pause"+promptSuffix, got.String())
+	got.Reset()
+	fmt.Fprintln(in, "no")
+	if err := Pause.Prompt("pause-2"); err != nil {
+		t.Fatal(err)
+	}
+	if Pause.Flag() {
+		t.Fatal("not continued")
+	}
+	expect(t, "pause-2; pause"+promptSuffix, got.String())
+	got.Reset()
+	Pause.set()
+	in.Reset()
+	if err := Pause.Prompt("pause-3"); err != io.EOF {
+		t.Fatalf("failed to quit, %v", err)
+	}
+	if Pause.Flag() {
+		t.Fatal("not continued")
+	}
+	expect(t, "pause-3; pause"+promptSuffix, got.String())
 	got.Reset()
 }

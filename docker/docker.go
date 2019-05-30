@@ -349,7 +349,7 @@ func PingCmd(t *testing.T, ID string, config *Config, target string) error {
 
 	err := fmt.Errorf("ping timeout %v -> %v", ID, target)
 	if err != nil && false {
-		test.Pause(fmt.Sprintf("ping timeout %v -> %v", ID, target))
+		test.Pause.Prompt("ping timeout ", ID, " -> ", target)
 	}
 	return err
 }

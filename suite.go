@@ -45,24 +45,21 @@ func (tests Tests) Test(t *testing.T) {
 				if *DryRun {
 					return
 				}
-				if *MustStep {
-					tprompt(t, v)
-				}
+				terr(t, step.Prompt(v))
 				if t.Skipped() || t.Failed() {
 					return
 				}
 				v.Test(t)
 				if t.Failed() {
-					tprompt(t, v, " FAILED")
+					terr(t, Pause.Prompt(v, " FAILED"))
 				}
 			})
 		}
 	}
 }
 
-func tprompt(t *testing.T, args ...interface{}) {
+func terr(t *testing.T, err error) {
 	t.Helper()
-	err := prompt(args...)
 	if err != nil {
 		if err == io.EOF {
 			t.SkipNow()

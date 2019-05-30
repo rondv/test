@@ -6,7 +6,6 @@ package test
 
 import (
 	"bytes"
-	"fmt"
 	"go/build"
 	"io/ioutil"
 	"os"
@@ -231,8 +230,7 @@ func (assert Assert) Ping(netns, addr string) {
 		time.Sleep(period)
 	}
 	if false {
-		fail_msg := fmt.Sprintf("Failed %v ping %v", netns, addr)
-		Pause(fail_msg)
+		Pause.Prompt("Failed ", netns, " ping ", addr)
 	}
 	assert.Fatalf("%s no response", addr)
 }
