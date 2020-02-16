@@ -434,7 +434,7 @@ func isContainerRunning(t *testing.T, config *Config, name string) bool {
 }
 
 func pullImage(t *testing.T, cli *client.Client, router Router) error {
-	repo := "docker.io/library/" + router.Image
+	repo := "docker.io/" + router.Image
 	out, err := cli.ImagePull(context.Background(), repo,
 		types.ImagePullOptions{})
 	if err != nil {
