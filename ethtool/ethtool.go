@@ -38,8 +38,15 @@ func Init() {
 		ethtool := []string{"ethtool", "-s", ifname}
 		test.Run(append(ethtool, args...)...)
 	}
+	option := "--set-priv-flags"
+	if opt, ok := PrivFlags["option"]; ok && len(opt) > 0 {
+		option = opt[0]
+	}
 	for ifname, args := range PrivFlags {
-		ethtool := []string{"ethtool", "--set-priv-flags", ifname}
+		if ifname == "option" {
+			continue
+		}
+		ethtool := []string{"ethtool", option, ifname}
 		test.Run(append(ethtool, args...)...)
 	}
 }
