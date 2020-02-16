@@ -229,8 +229,6 @@ func (assert Assert) Ping(netns, addr string) {
 		}
 		time.Sleep(period)
 	}
-	if false {
-		Pause.Prompt("Failed ", netns, " ping ", addr)
-	}
+	Pause.Prompt("Failed ", netns, " ping ", addr)
 	assert.Fatalf("%s no response", addr)
 }
