@@ -34,7 +34,7 @@ type Router struct {
 		IsBridge bool
 		Name     string
 		Address  string // nil for BRIDGE_PORT
-		Vlan     string // PORT_VLAN or BRIDGE_PORT
+		Vlan     string // PORT or BRIDGE_PORT
 		Upper    string // BRIDGE_PORT
 	}
 	id string
@@ -172,12 +172,8 @@ func LaunchContainers(t *testing.T, source []byte) (config *Config, err error) {
 		for _, intf := range router.Intfs {
 			if intf.IsBridge {
 				intf.DevType = netport.NETPORT_DEVTYPE_BRIDGE
-			} else if intf.Vlan != "" {
-				if intf.Upper != "" {
-					intf.DevType = netport.NETPORT_DEVTYPE_BRIDGE_PORT
-				} else {
-					intf.DevType = netport.NETPORT_DEVTYPE_PORT_VLAN
-				}
+			} else if intf.Upper != "" {
+				intf.DevType = netport.NETPORT_DEVTYPE_BRIDGE_PORT
 			} else {
 				intf.DevType = netport.NETPORT_DEVTYPE_PORT
 			}

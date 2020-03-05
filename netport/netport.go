@@ -55,7 +55,6 @@ type DummyIf struct {
 
 const (
 	NETPORT_DEVTYPE_PORT = iota
-	NETPORT_DEVTYPE_PORT_VLAN
 	NETPORT_DEVTYPE_BRIDGE
 	NETPORT_DEVTYPE_BRIDGE_PORT
 )
@@ -65,7 +64,7 @@ const (
 // default PORT sets ifa for ifname derived from NetPort
 // BRIDGE adds a linux bridge device with ifname and ifa
 // PORT_VLAN adds a linux vlan device to ifname derived from NetPort with ifa
-// BRIDGE_PORT adds a linux vlan device and sets upper to named bridge (no ifa)
+// BRIDGE_PORT adds a linux vlan device (if vid!=0) and sets upper to named bridge (no ifa)
 // initial values filled from NetDev[], then DevType and Ifname updated
 type NetDev struct {
 	DevType       int
@@ -96,12 +95,8 @@ func (netdevs NetDevs) Test(t *testing.T, tests ...test.Tester) {
 		nd := &netdevs[i]
 		if nd.IsBridge {
 			nd.DevType = NETPORT_DEVTYPE_BRIDGE
-		} else if nd.Vlan != 0 {
-			if nd.Upper != "" {
-				nd.DevType = NETPORT_DEVTYPE_BRIDGE_PORT
-			} else {
-				nd.DevType = NETPORT_DEVTYPE_PORT_VLAN
-			}
+		} else if nd.Upper != "" {
+			nd.DevType = NETPORT_DEVTYPE_BRIDGE_PORT
 		} else {
 			nd.DevType = NETPORT_DEVTYPE_PORT
 		}
@@ -115,14 +110,13 @@ func (netdevs NetDevs) Test(t *testing.T, tests ...test.Tester) {
 
 		if nd.DevType == NETPORT_DEVTYPE_BRIDGE {
 			if nd.BridgeIfindex != 0 {
-				assert.Program(Goes, "ip", "-n", ns,
+				assert.Program("ip", "-n", ns,
 					"link", "add", nd.Ifname,
-					"index", nd.BridgeIfindex,
-					"type", "bridge")
+					"type", "xeth-bridge")
 			} else {
-				assert.Program(Goes, "ip", "-n", ns,
+				assert.Program("ip", "-n", ns,
 					"link", "add", nd.Ifname,
-					"type", "bridge")
+					"type", "xeth-bridge")
 			}
 
 			if false && nd.BridgeMac != "" {
@@ -141,9 +135,8 @@ func (netdevs NetDevs) Test(t *testing.T, tests ...test.Tester) {
 				ifname += fmt.Sprint(".", nd.Vlan)
 				assert.Program(Goes, "ip", "link", "set", link,
 					"up")
-				assert.Program(Goes, "ip", "link", "add",
-					ifname, "link", link, "type", "vlan",
-					"id", nd.Vlan)
+				assert.Program("ip", "link", "add",
+					ifname, "link", link, "type", "xeth-vlan")
 				defer cleanup.Program(Goes, "ip", "link",
 					"del", ifname)
 			}
