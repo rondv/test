@@ -186,13 +186,12 @@ func LaunchContainers(t *testing.T, source []byte) (config *Config, err error) {
 				newIntf := intf.Name + "." + intf.Vlan
 				lc.Program("ip", "link", "set", intf.Name, "up")
 				lc.Program("ip", "link", "add", newIntf,
-					"link", intf.Name, "type", "vlan",
-					"id", intf.Vlan)
+					"link", intf.Name, "type", "xeth-vlan")
 				lc.Program("ip", "link", "set", newIntf, "up")
 				intf.Name = newIntf
 			} else if intf.DevType == netport.NETPORT_DEVTYPE_BRIDGE {
 				lc.Program("ip", "netns", "exec", ns,
-					"ip", "link", "add", intf.Name, "type", "bridge")
+					"ip", "link", "add", intf.Name, "type", "xeth-bridge")
 				lc.Program("ip", "netns", "exec", ns,
 					"ip", "addr", "add", intf.Address, "dev", intf.Name)
 				lc.Program("ip", "netns", "exec", ns,
