@@ -293,7 +293,11 @@ func ExecCmd(t *testing.T, ID string, config *Config,
 func PingCmd(t *testing.T, ID string, config *Config, target string) error {
 	t.Helper()
 
+	is_v6 := test.IsIPv6(target)
 	cmd := []string{"/bin/ping", "-c1", "-W1", target}
+	if is_v6 {
+		cmd[0] = "/bin/ping6"
+	}
 	execOpts := types.ExecConfig{
 		Cmd:          cmd,
 		AttachStdout: true,
