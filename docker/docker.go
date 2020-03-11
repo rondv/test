@@ -169,6 +169,12 @@ func LaunchContainers(t *testing.T, source []byte) (config *Config, err error) {
 		lc.Program("ip", "netns", "exec", router.Hostname,
 			"sysctl", "-w", "net/ipv4/conf/all/rp_filter=0")
 
+		lc.Program("ip", "netns", "exec", router.Hostname,
+			"sysctl", "-w", "net/ipv6/conf/all/disable_ipv6=0")
+
+		lc.Program("ip", "netns", "exec", router.Hostname,
+			"sysctl", "-w", "net/ipv6/conf/all/keep_addr_on_down=1")
+
 		for _, intf := range router.Intfs {
 			if intf.IsBridge {
 				intf.DevType = netport.NETPORT_DEVTYPE_BRIDGE
