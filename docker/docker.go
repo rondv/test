@@ -33,9 +33,9 @@ type Router struct {
 		DevType  int
 		IsBridge bool
 		Name     string
-		Address  string // nil for BRIDGE_PORT
-		Vlan     string // PORT or BRIDGE_PORT
-		Upper    string // BRIDGE_PORT
+		Address  []string // nil for BRIDGE_PORT
+		Vlan     string   // PORT or BRIDGE_PORT
+		Upper    string   // BRIDGE_PORT
 	}
 	id string
 }
@@ -199,7 +199,7 @@ func LaunchContainers(t *testing.T, source []byte) (config *Config, err error) {
 				lc.Program("ip", "netns", "exec", ns,
 					"ip", "link", "add", intf.Name, "type", "xeth-bridge")
 				lc.Program("ip", "netns", "exec", ns,
-					"ip", "addr", "add", intf.Address, "dev", intf.Name)
+					"ip", "addr", "add", intf.Address[0], "dev", intf.Name)
 				lc.Program("ip", "netns", "exec", ns,
 					"ip", "link", "set", intf.Name, "up")
 			}
@@ -530,7 +530,7 @@ func getPid(ID string) (pid string, err error) {
 }
 
 func moveIntfContainer(t *testing.T, container string, intf string,
-	addr string) error {
+	addr []string) error {
 
 	t.Helper()
 	assert := test.Assert{t}
@@ -542,8 +542,8 @@ func moveIntfContainer(t *testing.T, container string, intf string,
 	assert.Program("ip", "-n", container, "link", "set", "up", "lo")
 	assert.Program("ip", "-n", container, "link", "set", "down", intf)
 	assert.Program("ip", "-n", container, "link", "set", "up", intf)
-	if addr != "" {
-		assert.Program("ip", "-n", container, "addr", "add", addr, "dev", intf)
+	for _, a := range addr {
+		assert.Program("ip", "-n", container, "addr", "add", a, "dev", intf)
 	}
 	return nil
 }
