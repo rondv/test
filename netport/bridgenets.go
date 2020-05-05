@@ -4,13 +4,41 @@
 
 package netport
 
-// starting tag for vlan interfaces is 100 instead of 1
-// allocated stag for bridge must not overlap with tag of configured vlan interface
-// otherwise vlan ingress is switched as bridge ingress
+var BridgeNets0 = NetDevs{
+	{
+		Netns:   "h1",
+		Vlan:    100,
+		NetPort: "net0port0",
+		Ifa:     "10.1.0.1/24",
+		Remotes: []string{"10.1.0.2", "10.1.0.3"},
+	},
 
-// 32b ifindex for bridge will collidge across netns unless allocated manually
-// use ridiculously huge number to avoid collision with default namespace
-const BridgeIndexBase = 2000000000
+	{
+		Netns:    "r",
+		IsBridge: true,
+		Ifname:   "tb1",
+		Ifa:      "10.1.0.2/24",
+		Remotes:  []string{"10.1.0.1", "10.1.0.3"},
+	},
+	{
+		Netns:   "r",
+		Vlan:    100,
+		NetPort: "net0port1",
+		Upper:   "tb1",
+	},
+	{
+		Netns:   "r",
+		NetPort: "net1port1",
+		Upper:   "tb1",
+	},
+
+	{
+		Netns:   "h2",
+		NetPort: "net1port0",
+		Ifa:     "10.1.0.3/24",
+		Remotes: []string{"10.1.0.1", "10.1.0.2"},
+	},
+}
 
 var BridgeNets1 = NetDevs{
 	{
@@ -25,13 +53,11 @@ var BridgeNets1 = NetDevs{
 	},
 
 	{
-		Netns:         "r",
-		IsBridge:      true,
-		BridgeIfindex: BridgeIndexBase + 0,
-		Ifname:        "tb1",
-		BridgeMac:     "00:00:01:b1:b1:b1",
-		Ifa:           "10.1.0.1/24",
-		Remotes:       []string{"10.1.0.2", "10.2.0.2"},
+		Netns:    "r",
+		IsBridge: true,
+		Ifname:   "tb1",
+		Ifa:      "10.1.0.1/24",
+		Remotes:  []string{"10.1.0.2", "10.2.0.2"},
 	},
 	{
 		Netns:   "r",
@@ -40,13 +66,11 @@ var BridgeNets1 = NetDevs{
 		Upper:   "tb1",
 	},
 	{
-		Netns:         "r",
-		IsBridge:      true,
-		BridgeIfindex: BridgeIndexBase + 1,
-		Ifname:        "tb3",
-		BridgeMac:     "00:00:01:b3:b3:b3",
-		Ifa:           "10.2.0.1/24",
-		Remotes:       []string{"10.1.0.2", "10.2.0.2"},
+		Netns:    "r",
+		IsBridge: true,
+		Ifname:   "tb3",
+		Ifa:      "10.2.0.1/24",
+		Remotes:  []string{"10.1.0.2", "10.2.0.2"},
 	},
 	{
 		Netns:   "r",
@@ -67,7 +91,7 @@ var BridgeNets1 = NetDevs{
 	},
 }
 
-var BridgeNets2 = NetDevs{
+var _BridgeNets2 = NetDevs{ // adjacent bridges, not supported
 	{
 		Netns:   "h1",
 		Vlan:    100,
@@ -81,12 +105,10 @@ var BridgeNets2 = NetDevs{
 
 	// L2 bridge
 	{
-		Netns:         "b1",
-		IsBridge:      true,
-		BridgeIfindex: BridgeIndexBase + 0,
-		Ifname:        "tb1",
-		BridgeMac:     "00:00:02:b1:b1:b1",
-		Ifa:           "10.1.0.20/24",
+		Netns:    "b1",
+		IsBridge: true,
+		Ifname:   "tb1",
+		Ifa:      "10.1.0.20/24",
 		Routes: []Route{
 			{"default", "10.1.0.1"},
 		},
@@ -106,13 +128,11 @@ var BridgeNets2 = NetDevs{
 
 	// L3 bridge
 	{
-		Netns:         "r2",
-		IsBridge:      true,
-		BridgeIfindex: BridgeIndexBase + 1,
-		Ifname:        "tb2",
-		BridgeMac:     "00:00:02:b2:b2:b2",
-		Ifa:           "10.1.0.1/24",
-		Remotes:       []string{"10.1.0.2", "10.2.0.2"},
+		Netns:    "r2",
+		IsBridge: true,
+		Ifname:   "tb2",
+		Ifa:      "10.1.0.1/24",
+		Remotes:  []string{"10.1.0.2", "10.2.0.2"},
 	},
 	{
 		Netns:   "r2",
@@ -152,13 +172,11 @@ var BridgeNets1u = NetDevs{
 	},
 
 	{
-		Netns:         "r",
-		IsBridge:      true,
-		BridgeIfindex: BridgeIndexBase + 0,
-		Ifname:        "tb1",
-		BridgeMac:     "00:00:01:b1:b1:b1",
-		Ifa:           "10.1.0.1/24",
-		Remotes:       []string{"10.1.0.2", "10.2.0.2"},
+		Netns:    "r",
+		IsBridge: true,
+		Ifname:   "tb1",
+		Ifa:      "10.1.0.1/24",
+		Remotes:  []string{"10.1.0.2", "10.2.0.2"},
 	},
 	{
 		Netns:   "r",
@@ -166,13 +184,11 @@ var BridgeNets1u = NetDevs{
 		Upper:   "tb1",
 	},
 	{
-		Netns:         "r",
-		IsBridge:      true,
-		BridgeIfindex: BridgeIndexBase + 1,
-		Ifname:        "tb3",
-		BridgeMac:     "00:00:01:b3:b3:b3",
-		Ifa:           "10.2.0.1/24",
-		Remotes:       []string{"10.1.0.2", "10.2.0.2"},
+		Netns:    "r",
+		IsBridge: true,
+		Ifname:   "tb3",
+		Ifa:      "10.2.0.1/24",
+		Remotes:  []string{"10.1.0.2", "10.2.0.2"},
 	},
 	{
 		Netns:   "r",
@@ -191,7 +207,7 @@ var BridgeNets1u = NetDevs{
 	},
 }
 
-var BridgeNets2u = NetDevs{
+var _BridgeNets2u = NetDevs{ // adjacent bridges, not supported
 	{
 		Netns:   "h1",
 		NetPort: "net0port1",
@@ -204,12 +220,10 @@ var BridgeNets2u = NetDevs{
 
 	// L2 bridge
 	{
-		Netns:         "b1",
-		IsBridge:      true,
-		BridgeIfindex: BridgeIndexBase + 0,
-		Ifname:        "tb1",
-		BridgeMac:     "00:00:02:b1:b1:b1",
-		Ifa:           "10.1.0.20/24",
+		Netns:    "b1",
+		IsBridge: true,
+		Ifname:   "tb1",
+		Ifa:      "10.1.0.20/24",
 		Routes: []Route{
 			{"default", "10.1.0.1"},
 		},
@@ -227,13 +241,11 @@ var BridgeNets2u = NetDevs{
 
 	// L3 bridge
 	{
-		Netns:         "r2",
-		IsBridge:      true,
-		BridgeIfindex: BridgeIndexBase + 1,
-		Ifname:        "tb2",
-		BridgeMac:     "00:00:02:b2:b2:b2",
-		Ifa:           "10.1.0.1/24",
-		Remotes:       []string{"10.1.0.2", "10.2.0.2"},
+		Netns:    "r2",
+		IsBridge: true,
+		Ifname:   "tb2",
+		Ifa:      "10.1.0.1/24",
+		Remotes:  []string{"10.1.0.2", "10.2.0.2"},
 	},
 	{
 		Netns:   "r2",

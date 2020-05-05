@@ -67,15 +67,13 @@ const (
 // BRIDGE_PORT adds a linux vlan device (if vid!=0) and sets upper to named bridge (no ifa)
 // initial values filled from NetDev[], then DevType and Ifname updated
 type NetDev struct {
-	DevType       int
-	IsBridge      bool
-	BridgeIfindex int // for BRIDGE to avoid netns overlap
-	BridgeMac     string
-	Vlan          int    // for PORT_VLAN or BRIDGE_PORT
-	NetPort       string // lookup key for NetPortFile to Ifname
-	Netns         string
-	Ifname        string
-	Upper         string // only for BRIDGE_PORT
+	DevType  int
+	IsBridge bool
+	Vlan     int    // for PORT_VLAN or BRIDGE_PORT
+	NetPort  string // lookup key for NetPortFile to Ifname
+	Netns    string
+	Ifname   string
+	Upper    string // only for BRIDGE_PORT
 
 	Ifa      string // no ifa for BRIDGE_PORT
 	DummyIfs []DummyIf
@@ -109,21 +107,9 @@ func (netdevs NetDevs) Test(t *testing.T, tests ...test.Tester) {
 		}
 
 		if nd.DevType == NETPORT_DEVTYPE_BRIDGE {
-			if nd.BridgeIfindex != 0 {
-				assert.Program("ip", "-n", ns,
-					"link", "add", nd.Ifname,
-					"type", "xeth-bridge")
-			} else {
-				assert.Program("ip", "-n", ns,
-					"link", "add", nd.Ifname,
-					"type", "xeth-bridge")
-			}
-
-			if false && nd.BridgeMac != "" {
-				assert.Program(Goes, "ip", "-n", ns,
-					"link", "set", nd.Ifname,
-					"address", nd.BridgeMac)
-			}
+			assert.Program("ip", "-n", ns,
+				"link", "add", nd.Ifname,
+				"type", "xeth-bridge")
 			assert.Program(Goes, "ip", "-n", ns,
 				"link", "set", nd.Ifname, "up")
 			defer cleanup.Program(Goes, "ip", "-n", ns,
