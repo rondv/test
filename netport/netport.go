@@ -129,6 +129,10 @@ func (netdevs NetDevs) Test(t *testing.T, tests ...test.Tester) {
 			nd.Ifname = ifname
 			assert.ProgramRetry(3, Goes, "ip", "link", "set",
 				nd.Ifname, "up", "netns", ns)
+			if nd.Vlan == 0 {
+				defer cleanup.Program(Goes, "ip", "link", "set",
+					nd.Ifname, "up")
+			}
 			defer cleanup.Program(Goes, "ip", "-n", ns,
 				"link", "set", nd.Ifname, "down", "netns", 1)
 		}
