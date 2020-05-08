@@ -108,3 +108,38 @@ var TwoNetsIp6 = NetDevs{
 		Ifa:     "fc02:1:2:3:4:5:6:2/64",
 	},
 }
+
+var TwoVlanIp6 = NetDevs{
+	{
+		Vlan:    1,
+		NetPort: "net0port0",
+		Netns:   "h1",
+		Ifa:     "fc01:1:2:3:4:5:6:1/64",
+		Routes: []Route{
+			{"fc02:1:2:3:4:5:6:1/64", "fc01:1:2:3:4:5:6:2"},
+		},
+		Remotes: []string{"fc02:1:2:3:4:5:6:1"},
+	},
+	{
+		Vlan:    1,
+		NetPort: "net0port1",
+		Netns:   "r",
+		Ifa:     "fc01:1:2:3:4:5:6:2/64",
+	},
+	{
+		Vlan:    2,
+		NetPort: "net1port0",
+		Netns:   "h2",
+		Ifa:     "fc02:1:2:3:4:5:6:1/64",
+		Routes: []Route{
+			{"fc01:1:2:3:4:5:6:1/64", "fc02:1:2:3:4:5:6:2"},
+		},
+		Remotes: []string{"fc01:1:2:3:4:5:6:1"},
+	},
+	{
+		Vlan:    2,
+		NetPort: "net1port1",
+		Netns:   "r",
+		Ifa:     "fc02:1:2:3:4:5:6:2/64",
+	},
+}
