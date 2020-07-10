@@ -54,6 +54,7 @@ func (assert Assert) Dir(name string) {
 func (assert Assert) Nil(err error) {
 	assert.Helper()
 	if err != nil {
+		Pause.Prompt("Fail ", err)
 		assert.Fatal(err)
 	}
 }
@@ -183,6 +184,9 @@ func (assert Assert) ProgramRetry(tries int, options ...interface{}) {
 		if err = p.End(); err == nil {
 			return
 		}
+		if *VVV {
+			assert.Log("Retry ", err)
+		}
 		time.Sleep(time.Second)
 	}
 	assert.Nil(err)
@@ -207,6 +211,7 @@ func (assert Assert) PingNonFatal(netns, addr string) bool {
 	if exec.Command(xargs[0], xargs[1:]...).Run() == nil {
 		return true
 	} else {
+		Pause.Prompt("Failed ", netns, " ping ", addr)
 		return false
 	}
 
@@ -279,6 +284,9 @@ func (assert Assert) Ping(netns, addr string) {
 	for t := 1 * (time.Second / period); t != 0; t-- {
 		if exec.Command(xargs[0], xargs[1:]...).Run() == nil {
 			return
+		}
+		if *VVV {
+			assert.Log("Retry")
 		}
 		time.Sleep(period)
 	}

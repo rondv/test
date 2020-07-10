@@ -110,7 +110,7 @@ func (netdevs NetDevs) Test(t *testing.T, tests ...test.Tester) {
 			assert.Program("ip", "-n", ns,
 				"link", "add", nd.Ifname,
 				"type", "xeth-bridge")
-			assert.Program(Goes, "ip", "-n", ns,
+			assert.ProgramRetry(3, Goes, "ip", "-n", ns,
 				"link", "set", nd.Ifname, "up")
 			defer cleanup.Program(Goes, "ip", "-n", ns,
 				"link", "del", nd.Ifname)
@@ -130,17 +130,17 @@ func (netdevs NetDevs) Test(t *testing.T, tests ...test.Tester) {
 			assert.ProgramRetry(3, Goes, "ip", "link", "set",
 				nd.Ifname, "up", "netns", ns)
 			if nd.Vlan == 0 {
-				defer cleanup.Program(Goes, "ip", "link", "set",
+				defer cleanup.ProgramRetry(3, Goes, "ip", "link", "set",
 					nd.Ifname, "up")
 			}
-			defer cleanup.Program(Goes, "ip", "-n", ns,
+			defer cleanup.ProgramRetry(3, Goes, "ip", "-n", ns,
 				"link", "set", nd.Ifname, "down", "netns", 1)
 		}
 
 		if nd.DevType == NETPORT_DEVTYPE_BRIDGE_PORT {
-			assert.Program(Goes, "ip", "-n", ns,
+			assert.ProgramRetry(3, Goes, "ip", "-n", ns,
 				"link", "set", nd.Ifname, "master", nd.Upper)
-			defer cleanup.Program(Goes, "ip", "-n", ns,
+			defer cleanup.ProgramRetry(3, Goes, "ip", "-n", ns,
 				"link", "set", nd.Ifname, "nomaster")
 		} else if nd.Ifa != "" {
 			/* ip commands like "ip route" require specific family
@@ -154,7 +154,7 @@ func (netdevs NetDevs) Test(t *testing.T, tests ...test.Tester) {
 			for _, route := range nd.Routes {
 				prefix := route.Prefix
 				gw := route.GW
-				assert.Program(Goes, "ip", "-n", ns, family,
+				assert.ProgramRetry(3, Goes, "ip", "-n", ns, family,
 					"route", "add", prefix, "via", gw)
 			}
 		}
