@@ -203,12 +203,13 @@ func LaunchContainers(t *testing.T, source []byte) (config *Config, err error) {
 				lc.Program("ip", "netns", "exec", ns,
 					"ip", "link", "set", intf.Name, "up")
 			}
-			if intf.DevType == netport.NETPORT_DEVTYPE_BRIDGE_PORT {
-				lc.Program("ip", "netns", "exec", ns,
-					"ip", "link", "set", intf.Name, "master", intf.Upper)
-			}
 			if intf.DevType != netport.NETPORT_DEVTYPE_BRIDGE {
 				moveIntfContainer(t, ns, intf.Name, intf.Address)
+			}
+			if intf.DevType == netport.NETPORT_DEVTYPE_BRIDGE_PORT {
+				lc.Program("ip", "netns", "exec", ns, "ip", "link", "set", "up", intf.Name)
+				lc.Program("ip", "netns", "exec", ns,
+					"ip", "link", "set", intf.Name, "master", intf.Upper)
 			}
 			lc.Program("ip", "netns", "exec", ns,
 				"sysctl", "-w",
@@ -363,8 +364,14 @@ func TearDownContainers(t *testing.T, config *Config) {
 	t.Helper()
 	td := test.Cleanup{t}
 	for _, r := range config.Routers {
-
 		for _, intf := range r.Intfs {
+			if intf.IsBridge {
+				intf.DevType = netport.NETPORT_DEVTYPE_BRIDGE
+			} else if intf.Upper != "" {
+				intf.DevType = netport.NETPORT_DEVTYPE_BRIDGE_PORT
+			} else {
+				intf.DevType = netport.NETPORT_DEVTYPE_PORT
+			}
 			if intf.DevType == netport.NETPORT_DEVTYPE_BRIDGE {
 				continue
 			}
