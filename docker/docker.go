@@ -66,6 +66,10 @@ func Check(t *testing.T) error {
 		t.Fatalf("Docker ping failed: %v", err)
 		return err
 	}
+	if _, err := os.Stat("/var/run/netns"); os.IsNotExist(err) {
+		_ = os.Mkdir("/var/run/netns", os.ModeDir)
+	}
+
 	return nil
 }
 
