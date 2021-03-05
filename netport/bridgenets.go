@@ -14,24 +14,16 @@ var BridgeNets0 = NetDevs{
 	},
 
 	{
-		Netns:    "r",
-		IsBridge: true,
-		Ifname:   "tb1",
-		Ifa:      "10.1.0.2/24",
-		Remotes:  []string{"10.1.0.1", "10.1.0.3"},
-	},
-	{
 		Netns:   "r",
-		Vlan:    100,
-		NetPort: "net0port1",
-		Upper:   "tb1",
+		Kind:    "bridge",
+		Ifname:  "tb1",
+		Ifa:     "10.1.0.2/24",
+		Remotes: []string{"10.1.0.1", "10.1.0.3"},
+		Lowers: []PortVlan{
+			{NetPort: "net0port1", Vlan: 100},
+			{NetPort: "net1port1", Vlan: 0},
+		},
 	},
-	{
-		Netns:   "r",
-		NetPort: "net1port1",
-		Upper:   "tb1",
-	},
-
 	{
 		Netns:   "h2",
 		NetPort: "net1port0",
@@ -53,30 +45,24 @@ var BridgeNets1 = NetDevs{
 	},
 
 	{
-		Netns:    "r",
-		IsBridge: true,
-		Ifname:   "tb1",
-		Ifa:      "10.1.0.1/24",
-		Remotes:  []string{"10.1.0.2", "10.2.0.2"},
+		Netns:   "r",
+		Kind:    "bridge",
+		Ifname:  "tb1",
+		Ifa:     "10.1.0.1/24",
+		Remotes: []string{"10.1.0.2", "10.2.0.2"},
+		Lowers: []PortVlan{
+			{NetPort: "net0port1", Vlan: 100},
+		},
 	},
 	{
 		Netns:   "r",
-		Vlan:    100,
-		NetPort: "net0port1",
-		Upper:   "tb1",
-	},
-	{
-		Netns:    "r",
-		IsBridge: true,
-		Ifname:   "tb3",
-		Ifa:      "10.2.0.1/24",
-		Remotes:  []string{"10.1.0.2", "10.2.0.2"},
-	},
-	{
-		Netns:   "r",
-		Vlan:    200,
-		NetPort: "net1port1",
-		Upper:   "tb3",
+		Kind:    "bridge",
+		Ifname:  "tb3",
+		Ifa:     "10.2.0.1/24",
+		Remotes: []string{"10.1.0.2", "10.2.0.2"},
+		Lowers: []PortVlan{
+			{NetPort: "net1port1", Vlan: 200},
+		},
 	},
 
 	{
@@ -105,40 +91,29 @@ var _BridgeNets2 = NetDevs{ // adjacent bridges, not supported
 
 	// L2 bridge
 	{
-		Netns:    "b1",
-		IsBridge: true,
-		Ifname:   "tb1",
-		Ifa:      "10.1.0.20/24",
+		Netns:  "b1",
+		Kind:   "bridge",
+		Ifname: "tb1",
+		Ifa:    "10.1.0.20/24",
 		Routes: []Route{
 			{"default", "10.1.0.1"},
 		},
-	},
-	{
-		Netns:   "b1",
-		Vlan:    100,
-		NetPort: "net0port0",
-		Upper:   "tb1",
-	},
-	{
-		Netns:   "b1",
-		Vlan:    200,
-		NetPort: "net1port0",
-		Upper:   "tb1",
+		Lowers: []PortVlan{
+			{NetPort: "net0port0", Vlan: 100},
+			{NetPort: "net1port0", Vlan: 200},
+		},
 	},
 
 	// L3 bridge
 	{
-		Netns:    "r2",
-		IsBridge: true,
-		Ifname:   "tb2",
-		Ifa:      "10.1.0.1/24",
-		Remotes:  []string{"10.1.0.2", "10.2.0.2"},
-	},
-	{
 		Netns:   "r2",
-		Vlan:    200,
-		NetPort: "net1port1",
-		Upper:   "tb2",
+		Kind:    "bridge",
+		Ifname:  "tb2",
+		Ifa:     "10.1.0.1/24",
+		Remotes: []string{"10.1.0.2", "10.2.0.2"},
+		Lowers: []PortVlan{
+			{NetPort: "net1port1", Vlan: 200},
+		},
 	},
 	{
 		Netns:   "r2",
@@ -172,28 +147,24 @@ var BridgeNets1u = NetDevs{
 	},
 
 	{
-		Netns:    "r",
-		IsBridge: true,
-		Ifname:   "tb1",
-		Ifa:      "10.1.0.1/24",
-		Remotes:  []string{"10.1.0.2", "10.2.0.2"},
+		Netns:   "r",
+		Kind:    "bridge",
+		Ifname:  "tb1",
+		Ifa:     "10.1.0.1/24",
+		Remotes: []string{"10.1.0.2", "10.2.0.2"},
+		Lowers: []PortVlan{
+			{NetPort: "net0port1", Vlan: 0},
+		},
 	},
 	{
 		Netns:   "r",
-		NetPort: "net0port1",
-		Upper:   "tb1",
-	},
-	{
-		Netns:    "r",
-		IsBridge: true,
-		Ifname:   "tb3",
-		Ifa:      "10.2.0.1/24",
-		Remotes:  []string{"10.1.0.2", "10.2.0.2"},
-	},
-	{
-		Netns:   "r",
-		NetPort: "net1port1",
-		Upper:   "tb3",
+		Kind:    "bridge",
+		Ifname:  "tb3",
+		Ifa:     "10.2.0.1/24",
+		Remotes: []string{"10.1.0.2", "10.2.0.2"},
+		Lowers: []PortVlan{
+			{NetPort: "net1port1", Vlan: 0},
+		},
 	},
 
 	{
@@ -220,37 +191,29 @@ var _BridgeNets2u = NetDevs{ // adjacent bridges, not supported
 
 	// L2 bridge
 	{
-		Netns:    "b1",
-		IsBridge: true,
-		Ifname:   "tb1",
-		Ifa:      "10.1.0.20/24",
+		Netns:  "b1",
+		Kind:   "bridge",
+		Ifname: "tb1",
+		Ifa:    "10.1.0.20/24",
 		Routes: []Route{
 			{"default", "10.1.0.1"},
 		},
-	},
-	{
-		Netns:   "b1",
-		NetPort: "net0port0",
-		Upper:   "tb1",
-	},
-	{
-		Netns:   "b1",
-		NetPort: "net1port0",
-		Upper:   "tb1",
+		Lowers: []PortVlan{
+			{NetPort: "net0port0", Vlan: 0},
+			{NetPort: "net1port0", Vlan: 0},
+		},
 	},
 
 	// L3 bridge
 	{
-		Netns:    "r2",
-		IsBridge: true,
-		Ifname:   "tb2",
-		Ifa:      "10.1.0.1/24",
-		Remotes:  []string{"10.1.0.2", "10.2.0.2"},
-	},
-	{
 		Netns:   "r2",
-		NetPort: "net1port1",
-		Upper:   "tb2",
+		Kind:    "bridge",
+		Ifname:  "tb2",
+		Ifa:     "10.1.0.1/24",
+		Remotes: []string{"10.1.0.2", "10.2.0.2"},
+		Lowers: []PortVlan{
+			{NetPort: "net1port1", Vlan: 0},
+		},
 	},
 	{
 		Netns:   "r2",

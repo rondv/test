@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 	"syscall"
 	"testing"
@@ -19,25 +20,28 @@ import (
 	client "docker.io/go-docker"
 	"docker.io/go-docker/api/types"
 	"docker.io/go-docker/api/types/container"
+	"github.com/platinasystems/goes/external/xeth"
 	"github.com/platinasystems/test"
 	"github.com/platinasystems/test/netport"
 	"gopkg.in/yaml.v2"
 )
 
-// initial values filled from yaml, then DevType and Name updated
+// initial values filled from yaml
 type Router struct {
+	id       string
 	Image    string
 	Hostname string // netns
 	Cmd      string
 	Intfs    []struct {
-		DevType  int
-		IsBridge bool
-		Name     string
-		Address  []string // nil for BRIDGE_PORT
-		Vlan     string   // PORT or BRIDGE_PORT
-		Upper    string   // BRIDGE_PORT
+		Kind    string
+		Name    string
+		Vlan    int
+		Address []string
 	}
-	id string
+	Lowers map[string][]struct {
+		Name string
+		Vlan int
+	}
 }
 
 type Config struct {
@@ -141,6 +145,9 @@ func LaunchContainers(t *testing.T, source []byte) (config *Config, err error) {
 
 	// router specific cc & ch config
 	for i, router := range config.Routers {
+		// data, errx := yaml.Marshal(router)
+		// fmt.Printf("%s %v\n", data, errx)
+
 		if !isImageLocal(t, config.cli, router) {
 			Comment(t, "no local container, trying to pull  remote")
 			err = pullImage(t, config.cli, router)
@@ -180,48 +187,73 @@ func LaunchContainers(t *testing.T, source []byte) (config *Config, err error) {
 			"sysctl", "-w", "net/ipv6/conf/all/keep_addr_on_down=1")
 
 		for _, intf := range router.Intfs {
-			if intf.IsBridge {
-				intf.DevType = netport.NETPORT_DEVTYPE_BRIDGE
-			} else if intf.Upper != "" {
-				intf.DevType = netport.NETPORT_DEVTYPE_BRIDGE_PORT
-			} else {
-				intf.DevType = netport.NETPORT_DEVTYPE_PORT
+			kind, ok := netport.DevKindOf[intf.Kind]
+			if ok != true {
+				kind = xeth.DevKindPort
+			}
+
+			newIntf := IntfVlanName(intf.Name, intf.Vlan)
+			if *test.VVV {
+				t.Logf("intf %v: %+v\n", kind, intf)
 			}
 			ns := router.Hostname
 			if strings.Contains(intf.Name, "dummy") {
 				lc.Program("ip", "link", "add", intf.Name,
 					"type", "dummy")
 				lc.Program("ip", "link", "set", intf.Name, "up")
-			} else if intf.Vlan != "" {
-				newIntf := intf.Name + "." + intf.Vlan
+			} else if intf.Vlan != 0 {
 				lc.Program("ip", "link", "set", intf.Name, "up")
 				lc.Program("ip", "link", "add", newIntf,
 					"link", intf.Name, "type", "xeth-vlan")
 				lc.Program("ip", "link", "set", newIntf, "up")
-				intf.Name = newIntf
-			} else if intf.DevType == netport.NETPORT_DEVTYPE_BRIDGE {
-				lc.Program("ip", "netns", "exec", ns,
-					"ip", "link", "add", intf.Name, "type", "xeth-bridge")
-				lc.Program("ip", "netns", "exec", ns,
-					"ip", "addr", "add", intf.Address[0], "dev", intf.Name)
-				lc.Program("ip", "netns", "exec", ns,
-					"ip", "link", "set", intf.Name, "up")
+			} else if kind == xeth.DevKindBridge {
+				var brlink string
+
+				brlink = ""
+				for _, m := range router.Lowers[intf.Name] {
+					newIntf := IntfVlanName(m.Name, m.Vlan)
+					if m.Vlan != 0 {
+						if brlink == "" {
+							brlink = newIntf
+						}
+						lc.Program("ip", "link", "add", newIntf,
+							"link", m.Name, "type", "xeth-vlan")
+					}
+					lc.Program("ip", "link", "set",
+						newIntf, "up",
+						"netns", ns)
+					if brlink == "" {
+						brlink = m.Name
+					}
+				}
+
+				if brlink != "" {
+					lc.Program("ip", "-n", ns,
+						"link", "add", "name", intf.Name,
+						"link", brlink,
+						"type", "xeth-bridge")
+				} else {
+					lc.Program("ip", "-n", ns,
+						"link", "add", "name", intf.Name,
+						"type", "xeth-bridge")
+				}
+				lc.Program("ip", "-n", ns,
+					"addr", "add", intf.Address[0], "dev", intf.Name)
+				lc.Program("ip", "-n", ns,
+					"link", "set", intf.Name, "up")
+
+				for _, m := range router.Lowers[intf.Name] {
+					newIntf := IntfVlanName(m.Name, m.Vlan)
+					lc.Program("ip", "-n", ns,
+						"link", "set", newIntf, "master", intf.Name)
+				}
 			}
-			if intf.DevType != netport.NETPORT_DEVTYPE_BRIDGE {
-				moveIntfContainer(t, ns, intf.Name, intf.Address)
-			}
-			if intf.DevType == netport.NETPORT_DEVTYPE_BRIDGE_PORT {
-				lc.Program("ip", "netns", "exec", ns, "ip", "link", "set", "up", intf.Name)
-				lc.Program("ip", "netns", "exec", ns,
-					"ip", "link", "set", intf.Name, "master", intf.Upper)
+			if kind != xeth.DevKindBridge {
+				moveIntfContainer(t, ns, newIntf, intf.Address)
 			}
 			lc.Program("ip", "netns", "exec", ns,
 				"sysctl", "-w",
-				"net/ipv4/conf/"+intf.Name+"/rp_filter=0")
-
-			if *test.VVV {
-				t.Logf("intf %+v\n", intf)
-			}
+				"net/ipv4/conf/"+newIntf+"/rp_filter=0")
 		}
 	}
 	time.Sleep(1 * time.Second)
@@ -369,34 +401,41 @@ func TearDownContainers(t *testing.T, config *Config) {
 	td := test.Cleanup{t}
 	for _, r := range config.Routers {
 		for _, intf := range r.Intfs {
-			if intf.IsBridge {
-				intf.DevType = netport.NETPORT_DEVTYPE_BRIDGE
-			} else if intf.Upper != "" {
-				intf.DevType = netport.NETPORT_DEVTYPE_BRIDGE_PORT
-			} else {
-				intf.DevType = netport.NETPORT_DEVTYPE_PORT
+			kind, ok := netport.DevKindOf[intf.Kind]
+			if ok != true {
+				kind = xeth.DevKindPort
 			}
-			if intf.DevType == netport.NETPORT_DEVTYPE_BRIDGE {
-				continue
-			}
-			if intf.Vlan != "" {
-				newIntf := intf.Name + "." + intf.Vlan
+			if intf.Vlan != 0 {
+				newIntf := IntfVlanName(intf.Name, intf.Vlan)
 				moveIntfDefault(t, r.Hostname, newIntf)
 				td.Program("ip", "link", "del", newIntf)
 			} else if strings.Contains(intf.Name, "dummy") {
 				moveIntfDefault(t, r.Hostname, intf.Name)
 				td.Program("ip", "link", "del", intf.Name)
-			} else {
+			} else if kind != xeth.DevKindBridge {
 				moveIntfDefault(t, r.Hostname, intf.Name)
+			} else {
+				// return members to default, then delete bridge
+				for _, m := range r.Lowers[intf.Name] {
+					if m.Vlan != 0 {
+						newIntf := IntfVlanName(m.Name, m.Vlan)
+						td.Program("ip", "-n", r.Hostname,
+							"link", "set", newIntf, "nomaster")
+						td.Program("ip", "-n", r.Hostname,
+							"link", "del", newIntf)
+					} else {
+						td.Program("ip", "-n", r.Hostname,
+							"link", "set", m.Name, "nomaster")
+						td.Program("ip", "-n", r.Hostname,
+							"link", "set", m.Name, "up",
+							"netns", "1")
+					}
+				}
+				td.Program("ip", "-n", r.Hostname,
+					"link", "del", intf.Name)
 			}
 		}
-		// delete bridge after members moved to default and deleted
-		for _, intf := range r.Intfs {
-			if intf.DevType == netport.NETPORT_DEVTYPE_BRIDGE {
-				td.Program("ip", "netns", "exec", r.Hostname,
-					"ip", "link", "del", intf.Name)
-			}
-		}
+
 		err := stopContainer(t, config, r.Hostname, r.id)
 		if err != nil {
 			t.Logf("Error: stopping %v: %v", r.Hostname, err)
@@ -567,4 +606,12 @@ func moveIntfDefault(t *testing.T, container string, intf string) error {
 	mv.Program("ip", "-n", container, "link", "set", intf, "netns", "1")
 	mv.Program("ip", "link", "set", intf, "up")
 	return nil
+}
+
+func IntfVlanName(name string, vlan int) (intf string) {
+	intf = name
+	if vlan != 0 {
+		intf += "." + strconv.Itoa(vlan)
+	}
+	return
 }

@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/platinasystems/goes/external/xeth"
 	"github.com/platinasystems/test"
 	"gopkg.in/yaml.v2"
 )
@@ -23,6 +24,11 @@ const NetPortFile = "testdata/netport.yaml"
 var Goes string
 var PortByNetPort, NetPortByPort map[string]string
 
+var DevKindOf = map[string]xeth.DevKind{
+	"port":   xeth.DevKindPort,
+	"bridge": xeth.DevKindBridge,
+}
+
 func Init(goes string) {
 	Goes = goes
 	b, err := ioutil.ReadFile(NetPortFile)
@@ -31,6 +37,7 @@ func Init(goes string) {
 	}
 	PortByNetPort = make(map[string]string)
 	NetPortByPort = make(map[string]string)
+
 	if err = yaml.Unmarshal(b, PortByNetPort); err != nil {
 		panic(fmt.Errorf("%s: %v", NetPortFile, err))
 	}
@@ -53,50 +60,79 @@ type DummyIf struct {
 	Ifa    string
 }
 
-const (
-	NETPORT_DEVTYPE_PORT = iota
-	NETPORT_DEVTYPE_BRIDGE
-	NETPORT_DEVTYPE_BRIDGE_PORT
-)
+type PortVlan struct {
+	NetPort string
+	Vlan    int
+	Ifname  string // runtime lookup
+}
 
 // NetDev describes a network interface configuration.
-// DevType is determined by IsBridge, Vlan, and Upper
 // default PORT sets ifa for ifname derived from NetPort
-// BRIDGE adds a linux bridge device with ifname and ifa
+// BRIDGE adds a linux bridge device with ifname and ifa, plus its vlan members
 // PORT_VLAN adds a linux vlan device to ifname derived from NetPort with ifa
-// BRIDGE_PORT adds a linux vlan device (if vid!=0) and sets upper to named bridge (no ifa)
-// initial values filled from NetDev[], then DevType and Ifname updated
+// initial values filled from NetDev[], then DevKind and Ifname updated
 type NetDev struct {
-	DevType  int
-	IsBridge bool
-	Vlan     int    // for PORT_VLAN or BRIDGE_PORT
-	NetPort  string // lookup key for NetPortFile to Ifname
-	Netns    string
-	Ifname   string
-	Upper    string // only for BRIDGE_PORT
+	Kind string
 
-	Ifa      string // no ifa for BRIDGE_PORT
+	NetPort string // lookup key for NetPortFile to Ifname
+	Vlan    int    // for PORT_VLAN
+	Ifname  string
+
+	Netns    string
+	Ifa      string
 	DummyIfs []DummyIf
 	Routes   []Route
 	Remotes  []string
+	Lowers   []PortVlan
 }
 
 // NetDevs describe all of the interfaces in the virtual network under test.
 type NetDevs []NetDev
 
+// add/del netport in netns, either as dataport or member of bridge
+func NetPortConfig(t *testing.T, ns string, netport string, vlan int) (ifname string) {
+	assert := test.Assert{t}
+
+	ifname = PortByNetPort[netport]
+	if vlan != 0 {
+		link := ifname
+		ifname += fmt.Sprint(".", vlan)
+		assert.Program(Goes, "ip", "link", "set", link,
+			"up")
+		assert.Program(Goes, "ip", "link", "add",
+			ifname, "link", link, "type", "xeth-vlan")
+	}
+	assert.ProgramRetry(3, Goes, "ip", "link", "set",
+		ifname, "up", "netns", ns)
+	return
+}
+
+func NetPortCleanup(t *testing.T, ns string, ifname string, vlan int) {
+	cleanup := test.Cleanup{t}
+
+	cleanup.ProgramRetry(3, Goes, "ip", "-n", ns,
+		"link", "set", ifname, "down", "netns", 1)
+
+	if vlan != 0 {
+		cleanup.Program(Goes, "ip", "link", "del", ifname)
+	} else {
+		cleanup.ProgramRetry(3, Goes,
+			"ip", "link", "set", ifname, "up")
+	}
+}
+
 // netdevs list the interface configurations of the network under test
 func (netdevs NetDevs) Test(t *testing.T, tests ...test.Tester) {
+	var brlink string
+
 	test.SkipIfDryRun(t)
 	assert := test.Assert{t}
 	cleanup := test.Cleanup{t}
 	for i := range netdevs {
 		nd := &netdevs[i]
-		if nd.IsBridge {
-			nd.DevType = NETPORT_DEVTYPE_BRIDGE
-		} else if nd.Upper != "" {
-			nd.DevType = NETPORT_DEVTYPE_BRIDGE_PORT
-		} else {
-			nd.DevType = NETPORT_DEVTYPE_PORT
+		kind, ok := DevKindOf[nd.Kind]
+		if ok != true {
+			kind = xeth.DevKindPort
 		}
 
 		ns := nd.Netns
@@ -106,43 +142,48 @@ func (netdevs NetDevs) Test(t *testing.T, tests ...test.Tester) {
 			defer cleanup.Program(Goes, "ip", "netns", "del", ns)
 		}
 
-		if nd.DevType == NETPORT_DEVTYPE_BRIDGE {
-			assert.Program("ip", "-n", ns,
-				"link", "add", nd.Ifname,
-				"type", "xeth-bridge")
+		if kind == xeth.DevKindBridge {
+			brlink = ""
+			for i, mbr := range nd.Lowers {
+				nd.Lowers[i].Ifname = NetPortConfig(t, ns, mbr.NetPort, mbr.Vlan)
+				if brlink == "" {
+					brlink = nd.Lowers[i].Ifname
+				}
+			}
+			if brlink != "" {
+				assert.ProgramRetry(3, Goes, "ip", "netns", "exec", ns, Goes, "ip",
+					"link", "add", "name", nd.Ifname,
+					"link", brlink,
+					"type", "xeth-bridge")
+			} else {
+				assert.ProgramRetry(3, Goes, "ip", "netns", "exec", ns, Goes, "ip",
+					"link", "add", "name", nd.Ifname,
+					"type", "xeth-bridge")
+			}
+			/*
+				assert.ProgramRetry(3, Goes, "ip", "-n", ns,
+					"link", "add", nd.Ifname,
+					brlink,
+					"type", "xeth-bridge")
+			*/
 			assert.ProgramRetry(3, Goes, "ip", "-n", ns,
 				"link", "set", nd.Ifname, "up")
 			defer cleanup.Program(Goes, "ip", "-n", ns,
 				"link", "del", nd.Ifname)
+
+			for _, mbr := range nd.Lowers {
+				assert.ProgramRetry(3, GoesIP, "ip", "-n", ns,
+					"link", "set", mbr.Ifname, "master", nd.Ifname)
+				defer NetPortCleanup(t, ns, mbr.Ifname, mbr.Vlan)
+				defer cleanup.ProgramRetry(3, Goes, "ip", "-n", ns,
+					"link", "set", mbr.Ifname, "nomaster")
+			}
 		} else {
-			ifname := PortByNetPort[nd.NetPort]
-			if nd.Vlan != 0 {
-				link := ifname
-				ifname += fmt.Sprint(".", nd.Vlan)
-				assert.Program(Goes, "ip", "link", "set", link,
-					"up")
-				assert.Program("ip", "link", "add",
-					ifname, "link", link, "type", "xeth-vlan")
-				defer cleanup.Program(Goes, "ip", "link",
-					"del", ifname)
-			}
-			nd.Ifname = ifname
-			assert.ProgramRetry(3, Goes, "ip", "link", "set",
-				nd.Ifname, "up", "netns", ns)
-			if nd.Vlan == 0 {
-				defer cleanup.ProgramRetry(3, Goes, "ip", "link", "set",
-					nd.Ifname, "up")
-			}
-			defer cleanup.ProgramRetry(3, Goes, "ip", "-n", ns,
-				"link", "set", nd.Ifname, "down", "netns", 1)
+			nd.Ifname = NetPortConfig(t, ns, nd.NetPort, nd.Vlan)
+			defer NetPortCleanup(t, ns, nd.Ifname, nd.Vlan)
 		}
 
-		if nd.DevType == NETPORT_DEVTYPE_BRIDGE_PORT {
-			assert.ProgramRetry(3, Goes, "ip", "-n", ns,
-				"link", "set", nd.Ifname, "master", nd.Upper)
-			defer cleanup.ProgramRetry(3, Goes, "ip", "-n", ns,
-				"link", "set", nd.Ifname, "nomaster")
-		} else if nd.Ifa != "" {
+		if nd.Ifa != "" {
 			/* ip commands like "ip route" require specific family
 			 * (-6) for routes
 			 */
