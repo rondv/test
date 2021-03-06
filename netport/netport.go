@@ -21,7 +21,7 @@ import (
 
 const NetPortFile = "testdata/netport.yaml"
 
-var Goes string
+var Goes, GoesIP string
 var PortByNetPort, NetPortByPort map[string]string
 
 var DevKindOf = map[string]xeth.DevKind{
@@ -31,6 +31,9 @@ var DevKindOf = map[string]xeth.DevKind{
 
 func Init(goes string) {
 	Goes = goes
+	if !*test.NoGoes {
+		GoesIP = goes
+	}
 	b, err := ioutil.ReadFile(NetPortFile)
 	if err != nil {
 		panic(err)
@@ -97,12 +100,12 @@ func NetPortConfig(t *testing.T, ns string, netport string, vlan int) (ifname st
 	if vlan != 0 {
 		link := ifname
 		ifname += fmt.Sprint(".", vlan)
-		assert.Program(Goes, "ip", "link", "set", link,
+		assert.Program(GoesIP, "ip", "link", "set", link,
 			"up")
-		assert.Program(Goes, "ip", "link", "add",
+		assert.Program(GoesIP, "ip", "link", "add",
 			ifname, "link", link, "type", "xeth-vlan")
 	}
-	assert.ProgramRetry(3, Goes, "ip", "link", "set",
+	assert.ProgramRetry(3, GoesIP, "ip", "link", "set",
 		ifname, "up", "netns", ns)
 	return
 }
@@ -110,13 +113,13 @@ func NetPortConfig(t *testing.T, ns string, netport string, vlan int) (ifname st
 func NetPortCleanup(t *testing.T, ns string, ifname string, vlan int) {
 	cleanup := test.Cleanup{t}
 
-	cleanup.ProgramRetry(3, Goes, "ip", "-n", ns,
+	cleanup.ProgramRetry(3, GoesIP, "ip", "-n", ns,
 		"link", "set", ifname, "down", "netns", 1)
 
 	if vlan != 0 {
-		cleanup.Program(Goes, "ip", "link", "del", ifname)
+		cleanup.Program(GoesIP, "ip", "link", "del", ifname)
 	} else {
-		cleanup.ProgramRetry(3, Goes,
+		cleanup.ProgramRetry(3, GoesIP,
 			"ip", "link", "set", ifname, "up")
 	}
 }
@@ -138,8 +141,8 @@ func (netdevs NetDevs) Test(t *testing.T, tests ...test.Tester) {
 		ns := nd.Netns
 		_, err := os.Stat(filepath.Join("/var/run/netns", ns))
 		if err != nil {
-			assert.Program(Goes, "ip", "netns", "add", ns)
-			defer cleanup.Program(Goes, "ip", "netns", "del", ns)
+			assert.Program(GoesIP, "ip", "netns", "add", ns)
+			defer cleanup.Program(GoesIP, "ip", "netns", "del", ns)
 		}
 
 		if kind == xeth.DevKindBridge {
@@ -151,31 +154,31 @@ func (netdevs NetDevs) Test(t *testing.T, tests ...test.Tester) {
 				}
 			}
 			if brlink != "" {
-				assert.ProgramRetry(3, Goes, "ip", "netns", "exec", ns, Goes, "ip",
+				assert.ProgramRetry(3, GoesIP, "ip", "netns", "exec", ns, GoesIP, "ip",
 					"link", "add", "name", nd.Ifname,
 					"link", brlink,
 					"type", "xeth-bridge")
 			} else {
-				assert.ProgramRetry(3, Goes, "ip", "netns", "exec", ns, Goes, "ip",
+				assert.ProgramRetry(3, GoesIP, "ip", "netns", "exec", ns, GoesIP, "ip",
 					"link", "add", "name", nd.Ifname,
 					"type", "xeth-bridge")
 			}
 			/*
-				assert.ProgramRetry(3, Goes, "ip", "-n", ns,
+				assert.ProgramRetry(3, GoesIP, "ip", "-n", ns,
 					"link", "add", nd.Ifname,
 					brlink,
 					"type", "xeth-bridge")
 			*/
-			assert.ProgramRetry(3, Goes, "ip", "-n", ns,
+			assert.ProgramRetry(3, GoesIP, "ip", "-n", ns,
 				"link", "set", nd.Ifname, "up")
-			defer cleanup.Program(Goes, "ip", "-n", ns,
+			defer cleanup.Program(GoesIP, "ip", "-n", ns,
 				"link", "del", nd.Ifname)
 
 			for _, mbr := range nd.Lowers {
 				assert.ProgramRetry(3, GoesIP, "ip", "-n", ns,
 					"link", "set", mbr.Ifname, "master", nd.Ifname)
 				defer NetPortCleanup(t, ns, mbr.Ifname, mbr.Vlan)
-				defer cleanup.ProgramRetry(3, Goes, "ip", "-n", ns,
+				defer cleanup.ProgramRetry(3, GoesIP, "ip", "-n", ns,
 					"link", "set", mbr.Ifname, "nomaster")
 			}
 		} else {
@@ -188,14 +191,14 @@ func (netdevs NetDevs) Test(t *testing.T, tests ...test.Tester) {
 			 * (-6) for routes
 			 */
 			family := test.IpFamily(nd.Ifa)
-			assert.ProgramRetry(3, Goes, "ip", "-n", ns, family,
+			assert.ProgramRetry(3, GoesIP, "ip", "-n", ns, family,
 				"address", "add", nd.Ifa, "dev", nd.Ifname)
-			defer cleanup.Program(Goes, "ip", "-n", ns, family,
+			defer cleanup.Program(GoesIP, "ip", "-n", ns, family,
 				"address", "del", nd.Ifa, "dev", nd.Ifname)
 			for _, route := range nd.Routes {
 				prefix := route.Prefix
 				gw := route.GW
-				assert.ProgramRetry(3, Goes, "ip", "-n", ns, family,
+				assert.ProgramRetry(3, GoesIP, "ip", "-n", ns, family,
 					"route", "add", prefix, "via", gw)
 			}
 		}

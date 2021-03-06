@@ -12,8 +12,10 @@ import (
 var (
 	DryRun = flag.Bool("test.dryrun", false,
 		"don't run, just print test names")
-	VV  = flag.Bool("test.vv", false, "log program output")
-	VVV = flag.Bool("test.vvv", false, "log program execution")
+	VV     = flag.Bool("test.vv", false, "log program output")
+	VVV    = flag.Bool("test.vvv", false, "log program execution")
+	NoGoes = flag.Bool("test.nogoes", false, "linux ip commands")
+	NoExec = flag.Bool("test.noexec", false, "stub/echo linux ip commands")
 )
 
 func SkipIfDryRun(t *testing.T) {

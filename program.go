@@ -46,6 +46,11 @@ func Begin(tb testing.TB, options ...interface{}) (*Program, error) {
 		ebuf: new(bytes.Buffer),
 		dur:  Timeout,
 	}
+
+	if *NoExec {
+		args = append(args, "echo")
+	}
+
 	for _, opt := range options {
 		switch t := opt.(type) {
 		case Quiet:
@@ -55,8 +60,11 @@ func Begin(tb testing.TB, options ...interface{}) (*Program, error) {
 		case *regexp.Regexp:
 			p.exp = t
 		case string:
-			args = append(args, t)
+			if t != "" {
+				args = append(args, t)
+			}
 		case []string:
+			fmt.Printf("begin slice")
 			args = append(args, t...)
 		case time.Duration:
 			p.dur = t

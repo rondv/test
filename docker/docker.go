@@ -177,13 +177,13 @@ func LaunchContainers(t *testing.T, source []byte) (config *Config, err error) {
 		time.Sleep(2 * time.Second)
 
 		// set rp_filter off, need to do this again later per interface
-		lc.Program("ip", "netns", "exec", router.Hostname,
+		lc.Program(netport.GoesIP, "ip", "netns", "exec", router.Hostname,
 			"sysctl", "-w", "net/ipv4/conf/all/rp_filter=0")
 
-		lc.Program("ip", "netns", "exec", router.Hostname,
+		lc.Program(netport.GoesIP, "ip", "netns", "exec", router.Hostname,
 			"sysctl", "-w", "net/ipv6/conf/all/disable_ipv6=0")
 
-		lc.Program("ip", "netns", "exec", router.Hostname,
+		lc.Program(netport.GoesIP, "ip", "netns", "exec", router.Hostname,
 			"sysctl", "-w", "net/ipv6/conf/all/keep_addr_on_down=1")
 
 		for _, intf := range router.Intfs {
@@ -198,14 +198,14 @@ func LaunchContainers(t *testing.T, source []byte) (config *Config, err error) {
 			}
 			ns := router.Hostname
 			if strings.Contains(intf.Name, "dummy") {
-				lc.Program("ip", "link", "add", intf.Name,
+				lc.Program(netport.GoesIP, "ip", "link", "add", intf.Name,
 					"type", "dummy")
-				lc.Program("ip", "link", "set", intf.Name, "up")
+				lc.Program(netport.GoesIP, "ip", "link", "set", intf.Name, "up")
 			} else if intf.Vlan != 0 {
-				lc.Program("ip", "link", "set", intf.Name, "up")
-				lc.Program("ip", "link", "add", newIntf,
+				lc.Program(netport.GoesIP, "ip", "link", "set", intf.Name, "up")
+				lc.Program(netport.GoesIP, "ip", "link", "add", newIntf,
 					"link", intf.Name, "type", "xeth-vlan")
-				lc.Program("ip", "link", "set", newIntf, "up")
+				lc.Program(netport.GoesIP, "ip", "link", "set", newIntf, "up")
 			} else if kind == xeth.DevKindBridge {
 				var brlink string
 
@@ -216,10 +216,10 @@ func LaunchContainers(t *testing.T, source []byte) (config *Config, err error) {
 						if brlink == "" {
 							brlink = newIntf
 						}
-						lc.Program("ip", "link", "add", newIntf,
+						lc.Program(netport.GoesIP, "ip", "link", "add", newIntf,
 							"link", m.Name, "type", "xeth-vlan")
 					}
-					lc.Program("ip", "link", "set",
+					lc.Program(netport.GoesIP, "ip", "link", "set",
 						newIntf, "up",
 						"netns", ns)
 					if brlink == "" {
@@ -228,30 +228,30 @@ func LaunchContainers(t *testing.T, source []byte) (config *Config, err error) {
 				}
 
 				if brlink != "" {
-					lc.Program("ip", "-n", ns,
+					lc.Program(netport.GoesIP, "ip", "-n", ns,
 						"link", "add", "name", intf.Name,
 						"link", brlink,
 						"type", "xeth-bridge")
 				} else {
-					lc.Program("ip", "-n", ns,
+					lc.Program(netport.GoesIP, "ip", "-n", ns,
 						"link", "add", "name", intf.Name,
 						"type", "xeth-bridge")
 				}
-				lc.Program("ip", "-n", ns,
+				lc.Program(netport.GoesIP, "ip", "-n", ns,
 					"addr", "add", intf.Address[0], "dev", intf.Name)
-				lc.Program("ip", "-n", ns,
+				lc.Program(netport.GoesIP, "ip", "-n", ns,
 					"link", "set", intf.Name, "up")
 
 				for _, m := range router.Lowers[intf.Name] {
 					newIntf := IntfVlanName(m.Name, m.Vlan)
-					lc.Program("ip", "-n", ns,
+					lc.Program(netport.GoesIP, "ip", "-n", ns,
 						"link", "set", newIntf, "master", intf.Name)
 				}
 			}
 			if kind != xeth.DevKindBridge {
 				moveIntfContainer(t, ns, newIntf, intf.Address)
 			}
-			lc.Program("ip", "netns", "exec", ns,
+			lc.Program(netport.GoesIP, "ip", "netns", "exec", ns,
 				"sysctl", "-w",
 				"net/ipv4/conf/"+newIntf+"/rp_filter=0")
 		}
@@ -408,10 +408,10 @@ func TearDownContainers(t *testing.T, config *Config) {
 			if intf.Vlan != 0 {
 				newIntf := IntfVlanName(intf.Name, intf.Vlan)
 				moveIntfDefault(t, r.Hostname, newIntf)
-				td.Program("ip", "link", "del", newIntf)
+				td.Program(netport.GoesIP, "ip", "link", "del", newIntf)
 			} else if strings.Contains(intf.Name, "dummy") {
 				moveIntfDefault(t, r.Hostname, intf.Name)
-				td.Program("ip", "link", "del", intf.Name)
+				td.Program(netport.GoesIP, "ip", "link", "del", intf.Name)
 			} else if kind != xeth.DevKindBridge {
 				moveIntfDefault(t, r.Hostname, intf.Name)
 			} else {
@@ -419,19 +419,19 @@ func TearDownContainers(t *testing.T, config *Config) {
 				for _, m := range r.Lowers[intf.Name] {
 					if m.Vlan != 0 {
 						newIntf := IntfVlanName(m.Name, m.Vlan)
-						td.Program("ip", "-n", r.Hostname,
+						td.Program(netport.GoesIP, "ip", "-n", r.Hostname,
 							"link", "set", newIntf, "nomaster")
-						td.Program("ip", "-n", r.Hostname,
+						td.Program(netport.GoesIP, "ip", "-n", r.Hostname,
 							"link", "del", newIntf)
 					} else {
-						td.Program("ip", "-n", r.Hostname,
+						td.Program(netport.GoesIP, "ip", "-n", r.Hostname,
 							"link", "set", m.Name, "nomaster")
-						td.Program("ip", "-n", r.Hostname,
+						td.Program(netport.GoesIP, "ip", "-n", r.Hostname,
 							"link", "set", m.Name, "up",
 							"netns", "1")
 					}
 				}
-				td.Program("ip", "-n", r.Hostname,
+				td.Program(netport.GoesIP, "ip", "-n", r.Hostname,
 					"link", "del", intf.Name)
 			}
 		}
@@ -588,12 +588,12 @@ func moveIntfContainer(t *testing.T, container string, intf string,
 	Comment(t, "moving", intf, "to container", container,
 		"with address", addr)
 
-	assert.Program("ip", "link", "set", intf, "netns", container)
-	assert.Program("ip", "-n", container, "link", "set", "up", "lo")
-	assert.Program("ip", "-n", container, "link", "set", "down", intf)
-	assert.Program("ip", "-n", container, "link", "set", "up", intf)
+	assert.Program(netport.GoesIP, "ip", "link", "set", intf, "netns", container)
+	assert.Program(netport.GoesIP, "ip", "-n", container, "link", "set", "up", "lo")
+	assert.Program(netport.GoesIP, "ip", "-n", container, "link", "set", "down", intf)
+	assert.Program(netport.GoesIP, "ip", "-n", container, "link", "set", "up", intf)
 	for _, a := range addr {
-		assert.Program("ip", "-n", container, "addr", "add", a, "dev", intf)
+		assert.Program(netport.GoesIP, "ip", "-n", container, "addr", "add", a, "dev", intf)
 	}
 	return nil
 }
@@ -602,9 +602,9 @@ func moveIntfDefault(t *testing.T, container string, intf string) error {
 	t.Helper()
 	Comment(t, "moving", intf, "from", container, "to default")
 	mv := test.Cleanup{t}
-	mv.Program("ip", "-n", container, "link", "set", "down", intf)
-	mv.Program("ip", "-n", container, "link", "set", intf, "netns", "1")
-	mv.Program("ip", "link", "set", intf, "up")
+	mv.Program(netport.GoesIP, "ip", "-n", container, "link", "set", "down", intf)
+	mv.Program(netport.GoesIP, "ip", "-n", container, "link", "set", intf, "netns", "1")
+	mv.Program(netport.GoesIP, "ip", "link", "set", intf, "up")
 	return nil
 }
 
