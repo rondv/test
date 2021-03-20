@@ -186,6 +186,9 @@ func LaunchContainers(t *testing.T, source []byte) (config *Config, err error) {
 		lc.Program(netport.GoesIP, "ip", "netns", "exec", router.Hostname,
 			"sysctl", "-w", "net/ipv6/conf/all/keep_addr_on_down=1")
 
+		lc.Program(netport.GoesIP, "ip", "netns", "exec", router.Hostname,
+			"sysctl", "-w", "net/ipv6/conf/all/forwarding=1")
+
 		for _, intf := range router.Intfs {
 			kind, ok := netport.DevKindOf[intf.Kind]
 			if ok != true {
