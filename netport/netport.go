@@ -142,6 +142,8 @@ func (netdevs NetDevs) Test(t *testing.T, tests ...test.Tester) {
 		_, err := os.Stat(filepath.Join("/var/run/netns", ns))
 		if err != nil {
 			assert.Program(GoesIP, "ip", "netns", "add", ns)
+			assert.Program(GoesIP, "ip", "netns", "exec", ns,
+				"sysctl", "-w", "net.ipv6.conf.all.forwarding=1")
 			defer cleanup.Program(GoesIP, "ip", "netns", "del", ns)
 		}
 
