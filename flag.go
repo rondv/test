@@ -16,6 +16,7 @@ var (
 	VVV    = flag.Bool("test.vvv", false, "log program execution")
 	NoGoes = flag.Bool("test.nogoes", false, "linux ip commands")
 	NoExec = flag.Bool("test.noexec", false, "stub/echo linux ip commands")
+	NoBmc  = flag.Bool("test.nobmc", false, "no redis-cli to bmc")
 )
 
 func SkipIfDryRun(t *testing.T) {
