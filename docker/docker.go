@@ -349,6 +349,9 @@ func PingCmd(t *testing.T, ID string, config *Config, target string) error {
 	cli := config.cli
 	ctx := context.Background()
 
+	if *test.VVV {
+		t.Log(ID, cmd)
+	}
 	count := 10
 	for i := 0; i < count; i++ {
 

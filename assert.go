@@ -63,6 +63,7 @@ func (assert Assert) Nil(err error) {
 func (assert Assert) NonNil(err error) {
 	assert.Helper()
 	if err == nil {
+		Pause.Prompt("Unexpected pass")
 		assert.Fatal(err)
 	}
 }
@@ -261,6 +262,7 @@ func (assert Assert) RetryPing6(xargs []string) {
 			time.Sleep(period)
 		}
 	}
+	Pause.Prompt("Failed ", xargs)
 	assert.Fatalf("%s no response", xargs[len(xargs)-1])
 }
 
