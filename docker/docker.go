@@ -20,7 +20,6 @@ import (
 	client "docker.io/go-docker"
 	"docker.io/go-docker/api/types"
 	"docker.io/go-docker/api/types/container"
-	"github.com/platinasystems/goes/external/xeth"
 	"github.com/platinasystems/test"
 	"github.com/platinasystems/test/netport"
 	"gopkg.in/yaml.v2"
@@ -190,14 +189,13 @@ func LaunchContainers(t *testing.T, source []byte) (config *Config, err error) {
 			"sysctl", "-w", "net/ipv6/conf/all/forwarding=1")
 
 		for _, intf := range router.Intfs {
-			kind, ok := netport.DevKindOf[intf.Kind]
-			if ok != true {
-				kind = xeth.DevKindPort
+			if intf.Kind == "" {
+				intf.Kind = "xeth-port"
 			}
 
 			newIntf := IntfVlanName(intf.Name, intf.Vlan)
 			if *test.VVV {
-				t.Logf("intf %v: %+v\n", kind, intf)
+				t.Logf("intf %v: %+v\n", intf.Kind, intf)
 			}
 			ns := router.Hostname
 			if strings.Contains(intf.Name, "dummy") {
@@ -209,7 +207,7 @@ func LaunchContainers(t *testing.T, source []byte) (config *Config, err error) {
 				lc.Program(netport.GoesIP, "ip", "link", "add", newIntf,
 					"link", intf.Name, "type", "xeth-vlan")
 				lc.Program(netport.GoesIP, "ip", "link", "set", newIntf, "up")
-			} else if kind == xeth.DevKindBridge {
+			} else if intf.Kind == "xeth-bridge" {
 				var brlink string
 
 				brlink = ""
@@ -251,7 +249,7 @@ func LaunchContainers(t *testing.T, source []byte) (config *Config, err error) {
 						"link", "set", newIntf, "master", intf.Name)
 				}
 			}
-			if kind != xeth.DevKindBridge {
+			if intf.Kind != "xeth-bridge" {
 				moveIntfContainer(t, ns, newIntf, intf.Address)
 			}
 			lc.Program(netport.GoesIP, "ip", "netns", "exec", ns,
@@ -407,10 +405,6 @@ func TearDownContainers(t *testing.T, config *Config) {
 	td := test.Cleanup{t}
 	for _, r := range config.Routers {
 		for _, intf := range r.Intfs {
-			kind, ok := netport.DevKindOf[intf.Kind]
-			if ok != true {
-				kind = xeth.DevKindPort
-			}
 			if intf.Vlan != 0 {
 				newIntf := IntfVlanName(intf.Name, intf.Vlan)
 				moveIntfDefault(t, r.Hostname, newIntf)
@@ -418,7 +412,7 @@ func TearDownContainers(t *testing.T, config *Config) {
 			} else if strings.Contains(intf.Name, "dummy") {
 				moveIntfDefault(t, r.Hostname, intf.Name)
 				td.Program(netport.GoesIP, "ip", "link", "del", intf.Name)
-			} else if kind != xeth.DevKindBridge {
+			} else if intf.Kind != "xeth-bridge" {
 				moveIntfDefault(t, r.Hostname, intf.Name)
 			} else {
 				// return members to default, then delete bridge

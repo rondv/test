@@ -14,7 +14,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/platinasystems/goes/external/xeth"
 	"github.com/platinasystems/test"
 	"gopkg.in/yaml.v2"
 )
@@ -23,11 +22,6 @@ const NetPortFile = "testdata/netport.yaml"
 
 var Goes, GoesIP string
 var PortByNetPort, NetPortByPort map[string]string
-
-var DevKindOf = map[string]xeth.DevKind{
-	"port":   xeth.DevKindPort,
-	"bridge": xeth.DevKindBridge,
-}
 
 func Init(goes string) {
 	Goes = goes
@@ -133,11 +127,9 @@ func (netdevs NetDevs) Test(t *testing.T, tests ...test.Tester) {
 	cleanup := test.Cleanup{t}
 	for i := range netdevs {
 		nd := &netdevs[i]
-		kind, ok := DevKindOf[nd.Kind]
-		if ok != true {
-			kind = xeth.DevKindPort
+		if nd.Kind == "" {
+			nd.Kind = "xeth-port"
 		}
-
 		ns := nd.Netns
 		_, err := os.Stat(filepath.Join("/var/run/netns", ns))
 		if err != nil {
@@ -147,7 +139,7 @@ func (netdevs NetDevs) Test(t *testing.T, tests ...test.Tester) {
 			defer cleanup.Program(GoesIP, "ip", "netns", "del", ns)
 		}
 
-		if kind == xeth.DevKindBridge {
+		if nd.Kind == "xeth-bridge" {
 			brlink = ""
 			for i, mbr := range nd.Lowers {
 				nd.Lowers[i].Ifname = NetPortConfig(t, ns, mbr.NetPort, mbr.Vlan)

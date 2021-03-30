@@ -15,7 +15,7 @@ var BridgeNets0 = NetDevs{
 
 	{
 		Netns:   "r",
-		Kind:    "bridge",
+		Kind:    "xeth-bridge",
 		Ifname:  "tb1",
 		Ifa:     "10.1.0.2/24",
 		Remotes: []string{"10.1.0.1", "10.1.0.3"},
@@ -46,7 +46,7 @@ var BridgeNets1 = NetDevs{
 
 	{
 		Netns:   "r",
-		Kind:    "bridge",
+		Kind:    "xeth-bridge",
 		Ifname:  "tb1",
 		Ifa:     "10.1.0.1/24",
 		Remotes: []string{"10.1.0.2", "10.2.0.2"},
@@ -56,7 +56,7 @@ var BridgeNets1 = NetDevs{
 	},
 	{
 		Netns:   "r",
-		Kind:    "bridge",
+		Kind:    "xeth-bridge",
 		Ifname:  "tb3",
 		Ifa:     "10.2.0.1/24",
 		Remotes: []string{"10.1.0.2", "10.2.0.2"},
@@ -92,7 +92,7 @@ var _BridgeNets2 = NetDevs{ // adjacent bridges, not supported
 	// L2 bridge
 	{
 		Netns:  "b1",
-		Kind:   "bridge",
+		Kind:   "xeth-bridge",
 		Ifname: "tb1",
 		Ifa:    "10.1.0.20/24",
 		Routes: []Route{
@@ -107,7 +107,7 @@ var _BridgeNets2 = NetDevs{ // adjacent bridges, not supported
 	// L3 bridge
 	{
 		Netns:   "r2",
-		Kind:    "bridge",
+		Kind:    "xeth-bridge",
 		Ifname:  "tb2",
 		Ifa:     "10.1.0.1/24",
 		Remotes: []string{"10.1.0.2", "10.2.0.2"},
@@ -148,7 +148,7 @@ var BridgeNets1u = NetDevs{
 
 	{
 		Netns:   "r",
-		Kind:    "bridge",
+		Kind:    "xeth-bridge",
 		Ifname:  "tb1",
 		Ifa:     "10.1.0.1/24",
 		Remotes: []string{"10.1.0.2", "10.2.0.2"},
@@ -158,7 +158,7 @@ var BridgeNets1u = NetDevs{
 	},
 	{
 		Netns:   "r",
-		Kind:    "bridge",
+		Kind:    "xeth-bridge",
 		Ifname:  "tb3",
 		Ifa:     "10.2.0.1/24",
 		Remotes: []string{"10.1.0.2", "10.2.0.2"},
@@ -192,7 +192,7 @@ var _BridgeNets2u = NetDevs{ // adjacent bridges, not supported
 	// L2 bridge
 	{
 		Netns:  "b1",
-		Kind:   "bridge",
+		Kind:   "xeth-bridge",
 		Ifname: "tb1",
 		Ifa:    "10.1.0.20/24",
 		Routes: []Route{
@@ -207,7 +207,7 @@ var _BridgeNets2u = NetDevs{ // adjacent bridges, not supported
 	// L3 bridge
 	{
 		Netns:   "r2",
-		Kind:    "bridge",
+		Kind:    "xeth-bridge",
 		Ifname:  "tb2",
 		Ifa:     "10.1.0.1/24",
 		Remotes: []string{"10.1.0.2", "10.2.0.2"},
